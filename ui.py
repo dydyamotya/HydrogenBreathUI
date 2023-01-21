@@ -8,6 +8,8 @@ from gas_stand import set_gas_state, GasStandTimer
 import typing
 import logging
 import pathlib
+import configparser
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +120,7 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Go waiting", self.device_go_waiting)
         add_button_to_groupbox("Start", self.start_timer)
         add_button_to_groupbox("Stop", self.stop_timer)
+        add_button_to_groupbox("Get cal", self.get_heater_calibration)
 
         self.plot_widget = PlotWidget()
         device_groupbox_layout.addWidget(self.plot_widget)
@@ -162,19 +165,19 @@ class MainWidget(QtWidgets.QWidget):
 
     def read_device_status(self):
         if self._pre_device_command():
-            print(self.device_bench.get_status())
+            print(self.device_bench.get_status(self.parent().statusBar().showMessage))
 
     def device_go_work(self):
         if self._pre_device_command():
-            print(self.device_bench.go_work())
+            print(self.device_bench.go_work(self.parent().statusBar().showMessage))
 
     def device_go_waiting(self):
         if self._pre_device_command():
-            print(self.device_bench.go_waiting())
+            print(self.device_bench.go_waiting(self.parent().statusBar().showMessage))
 
     def device_get_have_data(self):
         if self._pre_device_command():
-            print(self.device_bench.get_have_data())
+            print(self.device_bench.get_have_data(self.parent().statusBar().showMessage))
 
     def start_timer(self):
         self.timer.start()
@@ -190,10 +193,32 @@ class MainWidget(QtWidgets.QWidget):
                 self.plot_widget.plot_answer(times, resistances)
                 h2conc, *_ = self.device_bench.get_result()
                 self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
-                self.data_logger.save_data(resistances, h2conc)
+                self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state)
 
         else:
             self.stop_timer()
+
+    def get_heater_calibration(self):
+        if self.timer.isActive():
+            return
+        if self._pre_device_command():
+            voltages, temperatures = self.device_bench.get_heater_calibration()
+            filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get cal file", dir="./")
+            if filename:
+                sensor_number, *_ = QtWidgets.QInputDialog.getInt(self, "What is the number of sensor you wanna see",
+                                                                  "Sensor number:", 0)
+                config = configparser.ConfigParser()
+                config.read(filename[:-3] + "par")
+                R0 = float(config["R0"][f"R0_{sensor_number}"].replace(",", "."))/100
+                Rc = float(config["Rc"][f"Rc_{sensor_number}"].replace(",", "."))/100
+                alpha = float(config["a"][f"a0_{sensor_number}"].replace(",", "."))
+                T0 = float(config["T0"]["T0"].replace(",", "."))
+
+                data = np.loadtxt(filename, skiprows=1)
+                ms_temperatures = data[:, sensor_number * 2 + 1]
+                R = (1  + alpha * (ms_temperatures - T0)) * (R0 - Rc) + Rc
+                ms_voltages = data[:, sensor_number * 2] * R / (R + 20)
+                self.plot_widget.plot_heater_calibration(voltages, temperatures, ms_voltages, ms_temperatures)
 
     def open_conces_gas_stand_file(self):
         filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Open gasstand_file", "./", "*")

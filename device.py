@@ -28,6 +28,7 @@ def escape_data(data):
     return escaped
 
 DOTS_NUMBER = 301
+DOTS_IN_PASHA_CALIBRATION = 410
 
 class TECH_BYTES(enum.Enum):
     START_BYTE, END_BYTE, ESCAPE_BYTE = b"\x7E\x81\x55"
@@ -46,6 +47,7 @@ class COMMAND_NUM(enum.Enum):
     SAVE = 0x20
     GET_RESULT = 0x21
     GET_HAVE_RESULT = 0x22
+    GET_HEATER_CAL = 0xA2
 
 
 def form_error_bytes(num):
@@ -136,7 +138,7 @@ class TestBench():
         return bytearray(useful)
 
     @locked
-    def go_waiting(self):
+    def go_waiting(self, print=print):
         to_send = self._send_command(COMMAND_NUM.WAIT.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.WAIT.value)
@@ -151,7 +153,7 @@ class TestBench():
         return answer
 
     @locked
-    def go_work(self):
+    def go_work(self, print=print):
         to_send = self._send_command(COMMAND_NUM.WORK.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.WORK.value)
@@ -180,7 +182,7 @@ class TestBench():
             return answer
 
     @locked
-    def get_status(self):
+    def get_status(self, print=print):
         to_send = self._send_command(COMMAND_NUM.STATUS.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.STATUS.value)
@@ -249,7 +251,7 @@ class TestBench():
         return answer
 
     @locked
-    def get_have_data(self):
+    def get_have_data(self, print=print):
         to_send = self._send_command(COMMAND_NUM.HAVE_DATA.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.HAVE_DATA.value)
@@ -284,3 +286,17 @@ class TestBench():
             return h2conc
         except:
             return answer
+
+    @locked
+    def get_heater_calibration(self):
+        to_send = self._send_command(COMMAND_NUM.GET_HEATER_CAL.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.GET_HEATER_CAL.value)
+        try:
+            data = struct.unpack("<" + "f" * DOTS_IN_PASHA_CALIBRATION , answer)
+            voltages = np.array(data)
+            temperatures = np.arange(DOTS_IN_PASHA_CALIBRATION) + 40
+            return voltages, temperatures
+        except:
+            return answer
+
