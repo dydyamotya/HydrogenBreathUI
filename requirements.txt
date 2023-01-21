@@ -1,0 +1,6 @@
+crcmod==1.7
+numpy==1.24.1
+pyqtgraph==0.13.1
+pyserial==3.5
+PySide2==5.15.2.1
+shiboken2==5.15.2.1
