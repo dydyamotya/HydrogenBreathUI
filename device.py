@@ -35,8 +35,7 @@ class TECH_BYTES(enum.Enum):
 
 
 class COMMAND_NUM(enum.Enum):
-    WAIT = 1
-    WORK = 2
+    TRIGGER_MEASUREMENT = 2
     GET = 3
     STATUS = 4
     SET_HEATER = 5
@@ -48,6 +47,7 @@ class COMMAND_NUM(enum.Enum):
     GET_RESULT = 0x21
     GET_HAVE_RESULT = 0x22
     GET_HEATER_CAL = 0xA2
+    GET_STATE = 0x30
 
 
 def form_error_bytes(num):
@@ -138,31 +138,15 @@ class TestBench():
         return bytearray(useful)
 
     @locked
-    def go_waiting(self, print=print):
-        to_send = self._send_command(COMMAND_NUM.WAIT.value, b"")
+    def trigger_measurement(self, time_to_suck, print=print):
+        useful = struct.pack("<f", time_to_suck)
+        to_send = self._send_command(COMMAND_NUM.TRIGGER_MEASUREMENT.value, useful=useful)
         self.ser.write(to_send)
-        answer = self._get_answer(COMMAND_NUM.WAIT.value)
+        answer = self._get_answer(COMMAND_NUM.TRIGGER_MEASUREMENT.value)
         if answer == bytearray(b"\x00"):
-            print("Regime changed")
+            print("Started")
         elif answer == bytearray(b"\x01"):
-            print("Already here")
-        elif answer == bytearray(b"\x02"):
-            print("Some error occured")
-        else:
-            print("Strange answer", answer)
-        return answer
-
-    @locked
-    def go_work(self, print=print):
-        to_send = self._send_command(COMMAND_NUM.WORK.value, b"")
-        self.ser.write(to_send)
-        answer = self._get_answer(COMMAND_NUM.WORK.value)
-        if answer == bytearray(b"\x00"):
-            print("Regime changed")
-        elif answer == bytearray(b"\x01"):
-            print("Already here")
-        elif answer == bytearray(b"\x02"):
-            print("Some error occured")
+            print("Something bad")
         else:
             print("Strange answer", answer)
         return answer
@@ -299,4 +283,26 @@ class TestBench():
             return voltages, temperatures
         except:
             return answer
-
+    @locked
+    def get_state(self):
+        to_send = self._send_command(COMMAND_NUM.GET_STATE.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.GET_STATE.value)
+        if answer == bytearray(b"\x00"):
+            print("IDLE")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("EXHALE")
+            return 1
+        elif answer == bytearray(b"\x02"):
+            print("MEASURING")
+            return 2
+        elif answer == bytearray(b"\x03"):
+            print("PURGING")
+            return 3
+        elif answer == bytearray(b"\x04"):
+            print("ERROR")
+            return 4
+        else:
+            print("Strange answer")
+            return answer

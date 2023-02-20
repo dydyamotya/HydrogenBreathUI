@@ -116,11 +116,14 @@ class MainWidget(QtWidgets.QWidget):
 
         add_button_to_groupbox("Init", self.init_device_bench)
         add_button_to_groupbox("Read status", self.read_device_status)
-        add_button_to_groupbox("Go work", self.device_go_work)
-        add_button_to_groupbox("Go waiting", self.device_go_waiting)
+        add_button_to_groupbox("Go work", self.device_trigger_measurement)
         add_button_to_groupbox("Start", self.start_timer)
         add_button_to_groupbox("Stop", self.stop_timer)
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
+
+        self.trigger_time_lineedit = QtWidgets.QLineEdit()
+        device_groupbox_layout.addWidget(self.trigger_time_lineedit)
+
 
         self.plot_widget = PlotWidget()
         device_groupbox_layout.addWidget(self.plot_widget)
@@ -167,19 +170,16 @@ class MainWidget(QtWidgets.QWidget):
         if self._pre_device_command():
             print(self.device_bench.get_status(self.parent().statusBar().showMessage))
 
-    def device_go_work(self):
+    def device_trigger_measurement(self):
         if self._pre_device_command():
-            print(self.device_bench.go_work(self.parent().statusBar().showMessage))
-
-    def device_go_waiting(self):
-        if self._pre_device_command():
-            print(self.device_bench.go_waiting(self.parent().statusBar().showMessage))
+            print(self.device_bench.trigger_measurement(self.trigger_time_lineedit.text(), print=self.parent().statusBar().showMessage))
 
     def device_get_have_data(self):
         if self._pre_device_command():
             print(self.device_bench.get_have_data(self.parent().statusBar().showMessage))
 
     def start_timer(self):
+        self.already_waited = 0
         self.timer.start()
 
     def stop_timer(self):
@@ -187,14 +187,30 @@ class MainWidget(QtWidgets.QWidget):
 
     def get_all_results(self):
         if self._pre_device_command():
+            state = self.device_bench.get_state()
+            if state == 0: # idle
+                if self.already_waited == 8:
+                    self.device_bench.trigger_measurement(float(self.trigger_time_lineedit.text()), print=self.parent().statusBar().showMessage)
+                    self.already_waited = 9
+                elif self.already_waited < 8:
+                    host, port = self.parent().settings_widget.get_gas_stand_settings()
+                    set_gas_state("0", host, port)
+                    self.already_waited += 1
+            elif state == 1: # exhale
+                pass
+            elif state == 2: # measuring
+                host, port = self.parent().settings_widget.get_gas_stand_settings()
+                set_gas_state("1", host, port)
+            elif state == 3: # purging
+                if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
+                    times, temperatures, resistances = self.device_bench.get_cycle()
+                    self.plot_widget.plot_answer(times, resistances)
+                    h2conc, *_ = self.device_bench.get_result()
+                    self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
+                    self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state)
+            else:
+                pass
             logger.debug(str(self.device_bench.get_have_data()[0]))
-            if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
-                times, temperatures, resistances = self.device_bench.get_cycle()
-                self.plot_widget.plot_answer(times, resistances)
-                h2conc, *_ = self.device_bench.get_result()
-                self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
-                self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state)
-
         else:
             self.stop_timer()
 
