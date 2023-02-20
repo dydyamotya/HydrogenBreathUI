@@ -47,7 +47,7 @@ class MainWidget(QtWidgets.QWidget):
 
 
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(3000)
+        self.timer.setInterval(1000)
         self.timer.timeout.connect(self.get_all_results)
 
         self.gasstand_timer = GasStandTimer()
@@ -116,7 +116,6 @@ class MainWidget(QtWidgets.QWidget):
 
         add_button_to_groupbox("Init", self.init_device_bench)
         add_button_to_groupbox("Read status", self.read_device_status)
-        add_button_to_groupbox("Go work", self.device_trigger_measurement)
         add_button_to_groupbox("Start", self.start_timer)
         add_button_to_groupbox("Stop", self.stop_timer)
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
@@ -189,6 +188,7 @@ class MainWidget(QtWidgets.QWidget):
         if self._pre_device_command():
             state = self.device_bench.get_state()
             if state == 0: # idle
+                logger.debug(f"Status {state}")
                 if self.already_waited == 8:
                     self.device_bench.trigger_measurement(float(self.trigger_time_lineedit.text()), print=self.parent().statusBar().showMessage)
                     self.already_waited = 9
@@ -197,11 +197,14 @@ class MainWidget(QtWidgets.QWidget):
                     set_gas_state("0", host, port)
                     self.already_waited += 1
             elif state == 1: # exhale
+                logger.debug(f"Status {state}")
                 pass
             elif state == 2: # measuring
+                logger.debug(f"Status {state}")
                 host, port = self.parent().settings_widget.get_gas_stand_settings()
                 set_gas_state("1", host, port)
             elif state == 3: # purging
+                logger.debug(f"Status {state}")
                 if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
                     times, temperatures, resistances = self.device_bench.get_cycle()
                     self.plot_widget.plot_answer(times, resistances)
