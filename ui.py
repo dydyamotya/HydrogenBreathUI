@@ -187,8 +187,8 @@ class MainWidget(QtWidgets.QWidget):
     def get_all_results(self):
         if self._pre_device_command():
             state = self.device_bench.get_state()
+            logger.debug(f"Status {state}")
             if state == 0: # idle
-                logger.debug(f"Status {state}")
                 if self.already_waited == 8:
                     self.device_bench.trigger_measurement(float(self.trigger_time_lineedit.text()), print=self.parent().statusBar().showMessage)
                     self.already_waited = 9
@@ -197,14 +197,11 @@ class MainWidget(QtWidgets.QWidget):
                     set_gas_state("0", host, port)
                     self.already_waited += 1
             elif state == 1: # exhale
-                logger.debug(f"Status {state}")
                 pass
             elif state == 2: # measuring
-                logger.debug(f"Status {state}")
                 host, port = self.parent().settings_widget.get_gas_stand_settings()
                 set_gas_state("1", host, port)
             elif state == 3: # purging
-                logger.debug(f"Status {state}")
                 if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
                     times, temperatures, resistances = self.device_bench.get_cycle()
                     self.plot_widget.plot_answer(times, resistances)
@@ -212,9 +209,7 @@ class MainWidget(QtWidgets.QWidget):
                     self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
                     self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state)
             else:
-                logger.debug(f"Status {state}")
                 pass
-            logger.debug(str(self.device_bench.get_have_data()[0]))
         else:
             self.stop_timer()
 
