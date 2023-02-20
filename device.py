@@ -144,7 +144,7 @@ class TestBench():
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.TRIGGER_MEASUREMENT.value)
         if answer == bytearray(b"\x00"):
-            print("Started")
+            print("Started trigger measurement")
         elif answer == bytearray(b"\x01"):
             print("Something bad")
         else:
