@@ -212,6 +212,7 @@ class MainWidget(QtWidgets.QWidget):
                     self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
                     self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state)
             else:
+                logger.debug(f"Status {state}")
                 pass
             logger.debug(str(self.device_bench.get_have_data()[0]))
         else:
