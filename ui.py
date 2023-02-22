@@ -123,6 +123,8 @@ class MainWidget(QtWidgets.QWidget):
         self.trigger_time_lineedit = QtWidgets.QLineEdit()
         device_groupbox_layout.addWidget(self.trigger_time_lineedit)
 
+        self.need_to_trigger_measurement = QtWidgets.QCheckBox("Trigger measurement")
+        device_groupbox_layout.addWidget(self.need_to_trigger_measurement)
 
         self.plot_widget = PlotWidget()
         device_groupbox_layout.addWidget(self.plot_widget)
@@ -188,36 +190,43 @@ class MainWidget(QtWidgets.QWidget):
     def get_all_results(self):
         if self._pre_device_command():
             state = self.device_bench.get_state()
-            logger.debug(f"Status {state}")
             self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}")
-            if state == 0: # idle
-                if self.already_waited == 8:
-                    self.device_bench.trigger_measurement(float(self.trigger_time_lineedit.text()), print=self.parent().statusBar().showMessage)
-                    self.already_waited = 9
-                elif self.already_waited < 8:
+            if self.need_to_trigger_measurement.isChecked():
+                if state == 0: # idle
+                    if self.already_waited == 8:
+                        self.device_bench.trigger_measurement(float(self.trigger_time_lineedit.text()), print=self.parent().statusBar().showMessage)
+                        self.already_waited = 9
+                    elif self.already_waited < 8:
+                        if not self.gas_already_sent:
+                            host, port = self.parent().settings_widget.get_gas_stand_settings()
+                            set_gas_state("0", host, port)
+                            self.gas_already_sent = True
+                        self.already_waited += 1
+                elif state == 1: # exhale
+                    self.gas_already_sent = False
+                    self.already_waited = 0
+                elif state == 2: # measuring
                     if not self.gas_already_sent:
                         host, port = self.parent().settings_widget.get_gas_stand_settings()
-                        set_gas_state("0", host, port)
+                        set_gas_state("1", host, port)
                         self.gas_already_sent = True
-                    self.already_waited += 1
-            elif state == 1: # exhale
-                self.gas_already_sent = False
-                self.already_waited = 0
-            elif state == 2: # measuring
-                if not self.gas_already_sent:
-                    host, port = self.parent().settings_widget.get_gas_stand_settings()
-                    set_gas_state("1", host, port)
-                    self.gas_already_sent = True
-            elif state == 3: # purging
-                self.gas_already_sent = False
+                elif state == 3: # purging
+                    self.gas_already_sent = False
+                    if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
+                        times, temperatures, resistances = self.device_bench.get_cycle()
+                        self.plot_widget.plot_answer(times, resistances)
+                        h2conc, *_ = self.device_bench.get_result()
+                        self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
+                        self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state)
+                else:
+                    pass
+            else:
                 if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
                     times, temperatures, resistances = self.device_bench.get_cycle()
                     self.plot_widget.plot_answer(times, resistances)
                     h2conc, *_ = self.device_bench.get_result()
                     self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
                     self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state)
-            else:
-                pass
         else:
             self.stop_timer()
 
