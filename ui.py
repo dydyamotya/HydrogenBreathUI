@@ -44,7 +44,7 @@ class MainWidget(QtWidgets.QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setWindowTitle("HydrogenBreathUI")
-
+        self.gas_already_sent = False
 
         self.timer = QtCore.QTimer()
         self.timer.setInterval(1000)
@@ -179,6 +179,7 @@ class MainWidget(QtWidgets.QWidget):
 
     def start_timer(self):
         self.already_waited = 0
+        self.gas_already_sent = False
         self.timer.start()
 
     def stop_timer(self):
@@ -193,16 +194,21 @@ class MainWidget(QtWidgets.QWidget):
                     self.device_bench.trigger_measurement(float(self.trigger_time_lineedit.text()), print=self.parent().statusBar().showMessage)
                     self.already_waited = 9
                 elif self.already_waited < 8:
-                    host, port = self.parent().settings_widget.get_gas_stand_settings()
-                    set_gas_state("0", host, port)
+                    if not self.gas_already_sent:
+                        host, port = self.parent().settings_widget.get_gas_stand_settings()
+                        set_gas_state("0", host, port)
+                        self.gas_already_sent = True
                     self.already_waited += 1
             elif state == 1: # exhale
-                pass
-            elif state == 2: # measuring
-                host, port = self.parent().settings_widget.get_gas_stand_settings()
+                self.gas_already_sent = False
                 self.already_waited = 0
-                set_gas_state("1", host, port)
+            elif state == 2: # measuring
+                if not self.gas_already_sent:
+                    host, port = self.parent().settings_widget.get_gas_stand_settings()
+                    set_gas_state("1", host, port)
+                    self.gas_already_sent = True
             elif state == 3: # purging
+                self.gas_already_sent = False
                 if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
                     times, temperatures, resistances = self.device_bench.get_cycle()
                     self.plot_widget.plot_answer(times, resistances)
