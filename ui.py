@@ -189,6 +189,7 @@ class MainWidget(QtWidgets.QWidget):
         if self._pre_device_command():
             state = self.device_bench.get_state()
             logger.debug(f"Status {state}")
+            self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}")
             if state == 0: # idle
                 if self.already_waited == 8:
                     self.device_bench.trigger_measurement(float(self.trigger_time_lineedit.text()), print=self.parent().statusBar().showMessage)
