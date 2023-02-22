@@ -200,6 +200,7 @@ class MainWidget(QtWidgets.QWidget):
                 pass
             elif state == 2: # measuring
                 host, port = self.parent().settings_widget.get_gas_stand_settings()
+                self.already_waited = 0
                 set_gas_state("1", host, port)
             elif state == 3: # purging
                 if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
