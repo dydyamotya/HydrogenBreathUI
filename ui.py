@@ -279,11 +279,13 @@ class MainWidget(QtWidgets.QWidget):
         if filename:
             counter = 0
             good = True
-            if self.device_bench.start_ota() == 0:
+            ota_answer = self.device_bench.start_ota()
+            if ota_answer == 0:
                 with open(filename, "rb") as fd:
                     red = fd.read(2000)
                     while good and len(red) != 0:
-                        if self.device_bench.chunk_ota(red) == 0:
+                        ota_answer = self.device_bench.chunk_ota(red)
+                        if ota_answer == 0:
                             while True:
                                 sleep(0.5)
                                 if self.device_bench.check_ota() == 0:
@@ -292,7 +294,7 @@ class MainWidget(QtWidgets.QWidget):
                             self.parent().statusBar().showMessage(f"OTA progress: {counter}")
                             red = fd.read(2000)
                         else:
-                            self.parent().statusBar().showMessage(f"OTA update failed on {counter} step")
+                            self.parent().statusBar().showMessage(f"OTA update failed on {counter} step with code {ota_answer}")
                             good = False
                 if good:
                     if self.device_bench.finalize_ota() == 0:
@@ -300,5 +302,5 @@ class MainWidget(QtWidgets.QWidget):
                     else:
                         self.parent().statusBar().showMessage("Failed finalize OTA update")
             else:
-                self.parent().statusBar().showMessage("Cant start OTA")
+                self.parent().statusBar().showMessage(f"Cant start OTA with code {ota_answer}")
 
