@@ -10,6 +10,7 @@ import logging
 import pathlib
 import configparser
 import numpy as np
+from time import sleep
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,7 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Start", self.start_timer)
         add_button_to_groupbox("Stop", self.stop_timer)
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
+        add_button_to_groupbox("Upload firmware", self.upload_firmware)
 
         self.trigger_time_lineedit = QtWidgets.QLineEdit()
         device_groupbox_layout.addWidget(self.trigger_time_lineedit)
@@ -131,6 +133,7 @@ class MainWidget(QtWidgets.QWidget):
 
         self.concentration_label = QtWidgets.QLabel("H2 conc: ---")
         device_groupbox_layout.addWidget(self.concentration_label)
+
 
 
         main_layout.addWidget(device_groupbox)
@@ -270,3 +273,28 @@ class MainWidget(QtWidgets.QWidget):
             self.status_label.setText("{:3} {:4.1f}".format(current_state, time_remaining/1000))
         else:
             self.status_label.setText("Turned off")
+
+    def upload_firmware(self):
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose firmware file", "./", "*")
+        if filename:
+            counter = 0
+            if self.device_bench.start_ota() == 0:
+                with open(filename, "rb") as fd:
+                    red = fd.read(2000)
+                    if len(red) != 0:
+                        if self.device_bench.chunk_ota(red) == 0:
+                            while True:
+                                sleep(0.5)
+                                if self.device_bench.check_ota() == 0:
+                                    break
+                            counter += 1
+                            self.parent().statusBar().showMessage(f"OTA progress: {counter}")
+                        else:
+                            self.parent().statusBar().showMessage(f"OTA update failed on {counter} step")
+                if self.device_bench.finalize_ota() == 0:
+                    self.parent().statusBar().showMessage("Successful OTA update")
+                else:
+                    self.parent().statusBar().showMessage("Failed finalize OTA update")
+            else:
+                self.parent().statusBar().showMessage("Cant start OTA")
+

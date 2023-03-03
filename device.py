@@ -48,7 +48,11 @@ class COMMAND_NUM(enum.Enum):
     GET_HAVE_RESULT = 0x22
     GET_HEATER_CAL = 0xA2
     GET_STATE = 0x30
-
+    START_OTA = 0xB0
+    CHUNK_OTA = 0xB1
+    OTA_GET_READY = 0xB2
+    CMD_OTA_FINALIZE = 0xB3
+    CMD_OTA_ABORT = 0xB4
 
 def form_error_bytes(num):
     return (1 << num).to_bytes(4, 'little')
@@ -303,6 +307,67 @@ class TestBench():
         elif answer == bytearray(b"\x04"):
             print("ERROR")
             return 4
+        else:
+            print("Strange answer")
+            return answer
+    @locked
+    def start_ota(self):
+        to_send = self._send_command(COMMAND_NUM.START_OTA.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.START_OTA.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return answer
+
+    @locked
+    def chunk_ota(self, chunk):
+        if len(chunk) < 2000:
+            chunk = chunk + b"\xFF" * (2000 - len(chunk))
+        to_send = self._send_command(COMMAND_NUM.CHUNK_OTA.value, chunk)
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CHUNK_OTA.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return answer
+
+    @locked
+    def check_ota(self):
+        to_send = self._send_command(COMMAND_NUM.OTA_GET_READY.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.OTA_GET_READY.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x02"):
+            print("BUSY")
+            return 2
+        else:
+            print("Strange answer")
+            return answer
+
+    @locked
+    def finalize_ota(self):
+        to_send = self._send_command(COMMAND_NUM.CMD_OTA_FINALIZE.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_OTA_FINALIZE.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
         else:
             print("Strange answer")
             return answer
