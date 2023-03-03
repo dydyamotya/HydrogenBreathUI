@@ -278,10 +278,11 @@ class MainWidget(QtWidgets.QWidget):
         filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose firmware file", "./", "*")
         if filename:
             counter = 0
+            good = True
             if self.device_bench.start_ota() == 0:
                 with open(filename, "rb") as fd:
                     red = fd.read(2000)
-                    if len(red) != 0:
+                    while good and len(red) != 0:
                         if self.device_bench.chunk_ota(red) == 0:
                             while True:
                                 sleep(0.5)
@@ -289,12 +290,15 @@ class MainWidget(QtWidgets.QWidget):
                                     break
                             counter += 1
                             self.parent().statusBar().showMessage(f"OTA progress: {counter}")
+                            red = fd.read(2000)
                         else:
                             self.parent().statusBar().showMessage(f"OTA update failed on {counter} step")
-                if self.device_bench.finalize_ota() == 0:
-                    self.parent().statusBar().showMessage("Successful OTA update")
-                else:
-                    self.parent().statusBar().showMessage("Failed finalize OTA update")
+                            good = False
+                if good:
+                    if self.device_bench.finalize_ota() == 0:
+                        self.parent().statusBar().showMessage("Successful OTA update")
+                    else:
+                        self.parent().statusBar().showMessage("Failed finalize OTA update")
             else:
                 self.parent().statusBar().showMessage("Cant start OTA")
 
