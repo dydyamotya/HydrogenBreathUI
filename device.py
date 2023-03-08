@@ -74,7 +74,7 @@ def locked(func):
 
 
 
-class TestBench():
+class MSDesktopDevice():
     def __init__(self, port, crc):
         if isinstance(port, str):
             self.ser = serial.Serial(port=port, timeout=1)
@@ -198,7 +198,7 @@ class TestBench():
         return answer
 
     @locked
-    def set_heater(self, *parameters):
+    def set_heater(self, *parameters, print=logger.info):
         """parameters: [0] – alpha, [1] – R0, [2] - Rn"""
         useful = struct.pack("<" + "f" * len(parameters), *parameters)
         to_send = self._send_command(COMMAND_NUM.SET_HEATER.value, useful)
@@ -213,7 +213,7 @@ class TestBench():
         return answer
 
     @locked
-    def set_meas(self, *parameters):
+    def set_meas(self, *parameters, print=logger.info):
         """parameters: [0] – Rs1, [1] – Rs2"""
         useful = struct.pack("<" + "f" * len(parameters), *parameters)
         to_send = self._send_command(COMMAND_NUM.SET_MEAS.value, useful)
@@ -228,7 +228,7 @@ class TestBench():
         return answer
 
     @locked
-    def set_cycle(self, floats):
+    def set_cycle(self, floats, print=logger.info):
         useful = struct.pack("<" + "f" * DOTS_NUMBER, *floats)
         to_send = self._send_command(COMMAND_NUM.SET_CYCLE.value, useful)
         self.ser.write(to_send)
@@ -247,7 +247,7 @@ class TestBench():
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.HAVE_DATA.value)
         if answer == bytearray(b"\x01"):
-            print("The is no data")
+            print("There is no data")
         elif answer == bytearray(b"\x00"):
             print("Data Have I")
         else:
@@ -255,7 +255,7 @@ class TestBench():
         return answer
 
     @locked
-    def get_have_result(self):
+    def get_have_result(self, print=logger.info):
         to_send = self._send_command(COMMAND_NUM.GET_HAVE_RESULT.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.GET_HAVE_RESULT.value)
@@ -374,3 +374,66 @@ class TestBench():
         else:
             print("Strange answer")
             return answer
+
+class PlaceHolderDevice():
+    def __init__(self):
+        class SerPlaceHolder():
+            def close(self):
+                pass
+
+        self.ser = SerPlaceHolder()
+        self.counter = 0
+    @locked
+    def trigger_measurement(self, time_to_suck, print=logger.info):
+        print("Started trigger measurement")
+        return b"\x00"
+
+    @locked
+    def get_result(self):
+        h2conc = 0.9
+        return h2conc
+    @locked
+    def get_cycle(self):
+        resistances, temperatures = np.ones(DOTS_NUMBER), np.ones(DOTS_NUMBER)
+        times = np.arange(temperatures.shape[0])
+        return times, temperatures, resistances
+
+    @locked
+    def get_status(self, print=logger.info):
+        answer = bytes(4)
+        print("Status OK")
+        return answer
+
+    @locked
+    def get_have_data(self, print=logger.info):
+        print("There is no data")
+        return b"\x01"
+    @locked
+    def get_have_result(self):
+        print("The is no new result")
+        return b"\x01"
+    @locked
+    def get_state(self, print=logger.info):
+        if self.counter == 0:
+            print("IDLE")
+            self.counter += 1
+            return 0
+        elif self.counter < 10:
+            print("EXHALE")
+            self.counter += 1
+            return 1
+        elif self.counter < 15:
+            print("MEASURING")
+            self.counter += 1
+            return 2
+        elif self.counter < 20:
+            print("PURGING")
+            self.counter += 1
+            return 3
+        elif self.counter == 20:
+            self.counter = 0
+            return 3
+        else:
+            print("Strange answer")
+            self.counter += 1
+            return 5

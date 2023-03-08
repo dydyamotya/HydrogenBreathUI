@@ -1,6 +1,8 @@
 import sys
 from PySide2 import QtWidgets, QtCore
-from device import TestBench, CRCCalculator
+from PySide2.QtGui import QIntValidator
+
+from device import MSDesktopDevice, CRCCalculator, PlaceHolderDevice
 from settings_widget import SettingsWidget
 from plot_widget import PlotWidget
 from logger import DataLogger
@@ -23,6 +25,7 @@ def app():
 
 
     main_window = QtWidgets.QMainWindow()
+    main_window.setWindowTitle("HydrogenBreathUI")
     main_window.setCentralWidget(main_widget)
 
     settings_widget = SettingsWidget(main_window, global_application_settings)
@@ -31,6 +34,13 @@ def app():
 
     menubar = main_window.menuBar()
     main_window.statusBar()
+    old_show_message = main_window.statusBar().showMessage
+    def show_message_wrapper(message):
+        logger.info(message)
+        old_show_message(message)
+
+    main_window.statusBar().showMessage = show_message_wrapper
+
 
     settings_action = QtWidgets.QAction("Settings", main_window)
     menubar.addAction(settings_action)
@@ -59,7 +69,7 @@ class MainWidget(QtWidgets.QWidget):
         self.status_timer.start()
 
 
-        self.device_bench: typing.Optional[TestBench] = None
+        self.device_bench: typing.Optional[MSDesktopDevice] = None
         self.data_logger = DataLogger(pathlib.Path.cwd())
 
         main_layout = QtWidgets.QVBoxLayout(self)
@@ -78,6 +88,7 @@ class MainWidget(QtWidgets.QWidget):
         opengasstand_button = QtWidgets.QPushButton("...")
         opengasstand_button.clicked.connect(self.open_conces_gas_stand_file)
 
+        conc_lineedit_layout.addWidget(QtWidgets.QLabel("Path to file with gas program (you can enter state number here and hit Enter button to change manually)"))
         conc_lineedit_layout.addWidget(self.conc_lineedit)
         conc_lineedit_layout.addWidget(opengasstand_button)
 
@@ -122,8 +133,16 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
         add_button_to_groupbox("Upload firmware", self.upload_firmware)
 
+        times_layout = QtWidgets.QFormLayout()
+        device_groupbox_layout.addLayout(times_layout)
+        self.before_trigger_time_lineedit = QtWidgets.QLineEdit()
+        self.before_trigger_time_lineedit.setValidator(QIntValidator(self))
         self.trigger_time_lineedit = QtWidgets.QLineEdit()
-        device_groupbox_layout.addWidget(self.trigger_time_lineedit)
+        self.trigger_time_lineedit.setValidator(QIntValidator(self))
+
+        times_layout.addRow("Time before trigger (in IDLE state)", self.before_trigger_time_lineedit)
+        times_layout.addRow("Time to trigger measurement: ", self.trigger_time_lineedit)
+
 
         self.need_to_trigger_measurement = QtWidgets.QCheckBox("Trigger measurement")
         device_groupbox_layout.addWidget(self.need_to_trigger_measurement)
@@ -158,7 +177,10 @@ class MainWidget(QtWidgets.QWidget):
             return
         if self.device_bench is not None:
             self.device_bench.ser.close()
-        self.device_bench = TestBench(device_port, crc)
+        if device_port != "test":
+            self.device_bench = MSDesktopDevice(device_port, crc)
+        else:
+            self.device_bench = PlaceHolderDevice()
         self.parent().statusBar().showMessage("Device initiated")
 
     def _pre_device_command(self):
@@ -172,20 +194,30 @@ class MainWidget(QtWidgets.QWidget):
 
     def read_device_status(self):
         if self._pre_device_command():
-            print(self.device_bench.get_status(self.parent().statusBar().showMessage))
+            self.device_bench.get_status(self.parent().statusBar().showMessage)
 
     def device_trigger_measurement(self):
         if self._pre_device_command():
-            print(self.device_bench.trigger_measurement(self.trigger_time_lineedit.text(), print=self.parent().statusBar().showMessage))
+            self.device_bench.trigger_measurement(self.trigger_time_lineedit.text(), print=self.parent().statusBar().showMessage)
 
     def device_get_have_data(self):
         if self._pre_device_command():
-            print(self.device_bench.get_have_data(self.parent().statusBar().showMessage))
+            self.device_bench.get_have_data(self.parent().statusBar().showMessage)
 
     def start_timer(self):
-        self.already_waited = 0
-        self.gas_already_sent = False
-        self.timer.start()
+
+        try:
+            if self.need_to_trigger_measurement.isChecked():
+                int(self.before_trigger_time_lineedit.text())
+                int(self.trigger_time_lineedit.text())
+        except ValueError:
+            msg_box = QtWidgets.QMessageBox()
+            msg_box.setText("Not started. Specify integer numbers in time fields")
+            msg_box.exec_()
+        else:
+            self.already_waited = 0
+            self.gas_already_sent = False
+            self.timer.start()
 
     def stop_timer(self):
         self.timer.stop()
@@ -196,10 +228,10 @@ class MainWidget(QtWidgets.QWidget):
             self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}")
             if self.need_to_trigger_measurement.isChecked():
                 if state == 0: # idle
-                    if self.already_waited == 8:
+                    if self.already_waited == int(self.before_trigger_time_lineedit.text()):
                         self.device_bench.trigger_measurement(float(self.trigger_time_lineedit.text()), print=self.parent().statusBar().showMessage)
-                        self.already_waited = 9
-                    elif self.already_waited < 8:
+                        self.already_waited = int(self.before_trigger_time_lineedit.text()) + 1
+                    elif self.already_waited < int(self.before_trigger_time_lineedit.text()):
                         if not self.gas_already_sent:
                             host, port = self.parent().settings_widget.get_gas_stand_settings()
                             set_gas_state("0", host, port)

@@ -1,5 +1,10 @@
+import logging
+
 from PySide2 import QtWidgets, QtCore, QtGui
 from serial.tools.list_ports import comports
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SettingsWidget(QtWidgets.QWidget):
     def __init__(self, parent, global_application_settings: QtCore.QSettings):
@@ -65,7 +70,9 @@ class SettingsWidget(QtWidgets.QWidget):
 
     def refresh_ports(self):
         self.device_port_combobox.clear()
-        self.device_port_combobox.addItems(tuple(map(lambda x: x.device, comports())))
+        devices = tuple(map(lambda x: x.device, comports())) + ("test",)
+        logger.debug(f"Devices: {devices}")
+        self.device_port_combobox.addItems(devices)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         self.save_global_settings()

@@ -1,12 +1,14 @@
-from ui import app
 import logging
+import argparse
+
+from ui import app
 
 FORMAT = '%(asctime)s %(message)s'
 logger = logging.getLogger(__name__)
 file_handler = logging.FileHandler(filename="log.log")
-logger.addHandler(file_handler)
+formatter = logging.Formatter(FORMAT)
+file_handler.setFormatter(formatter)
 
-import argparse
 
 
 def main(debug):
@@ -14,6 +16,7 @@ def main(debug):
         logging.basicConfig(format=FORMAT, level=logging.DEBUG)
     else:
         logging.basicConfig(format=FORMAT, level=logging.INFO)
+    logging.root.addHandler(file_handler)
     app()
 
 if __name__ == '__main__':
