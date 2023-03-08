@@ -5,6 +5,9 @@ import enum
 import threading
 import functools
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CRCCalculator():
@@ -93,7 +96,7 @@ class TestBench():
         buffer = escape_data(buffer)
         buffer.append(TECH_BYTES.END_BYTE.value)
         buffer.insert(0, TECH_BYTES.START_BYTE.value)
-        print(buffer)
+        logger.debug(f"{buffer}")
         return buffer
 
     def _get_answer(self, need_command):
@@ -111,7 +114,7 @@ class TestBench():
                         reading = True
                         continue
                     elif red == TECH_BYTES.END_BYTE.value:
-                        print("END BYTE encountered")
+                        logger.debug("END BYTE encountered")
                         reading = False
                         break
                     elif red == TECH_BYTES.ESCAPE_BYTE.value:
@@ -123,26 +126,26 @@ class TestBench():
                     escaped = False
                 if reading:
                     buffer.append(red)
-        print(buffer)
+        logger.debug(f"{buffer}")
         body_and_counter, crc_got = buffer[:-4], buffer[-4:]
-        print(crc_got)
+        logger.debug(f"{crc_got}")
         if self.crc(body_and_counter) == crc_got:
-            print("CRC OK")
+            logger.debug("CRC OK")
         else:
-            print("My CRC", self.crc(body_and_counter))
-            print("CRC ERROR")
+            logger.debug(f"My CRC {self.crc(body_and_counter)}")
+            logger.debug("CRC ERROR")
         command, *useful, counter = body_and_counter
         if command != need_command:
-            print(f"Command error {command} {need_command}")
+            logger.debug(f"Command error {command} {need_command}")
         if counter != self.get_counter:
-            print(f"Counters are not equal: got counter = {counter}, inter counter = {self.get_counter}")
+            logger.debug(f"Counters are not equal: got counter = {counter}, inter counter = {self.get_counter}")
             self.get_counter = counter + 1
         else:
             self.get_counter += 1
         return bytearray(useful)
 
     @locked
-    def trigger_measurement(self, time_to_suck, print=print):
+    def trigger_measurement(self, time_to_suck, print=logger.info):
         useful = struct.pack("<f", time_to_suck)
         to_send = self._send_command(COMMAND_NUM.TRIGGER_MEASUREMENT.value, useful=useful)
         self.ser.write(to_send)
@@ -152,7 +155,7 @@ class TestBench():
         elif answer == bytearray(b"\x01"):
             print("Something bad")
         else:
-            print("Strange answer", answer)
+            print("Strange answer")
         return answer
 
     @locked
@@ -170,7 +173,7 @@ class TestBench():
             return answer
 
     @locked
-    def get_status(self, print=print):
+    def get_status(self, print=logger.info):
         to_send = self._send_command(COMMAND_NUM.STATUS.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.STATUS.value)
@@ -206,7 +209,7 @@ class TestBench():
         elif answer == bytearray(b"\x01"):
             print("Status ERROR")
         else:
-            print("Strange answer", answer)
+            print("Strange answer")
         return answer
 
     @locked
@@ -221,7 +224,7 @@ class TestBench():
         elif answer == bytearray(b"\x01"):
             print("Status ERROR")
         else:
-            print("Strange answer", answer)
+            print("Strange answer")
         return answer
 
     @locked
@@ -235,11 +238,11 @@ class TestBench():
         elif answer == bytearray(b"\x01"):
             print("Status ERROR")
         else:
-            print("Strange answer", answer)
+            print("Strange answer")
         return answer
 
     @locked
-    def get_have_data(self, print=print):
+    def get_have_data(self, print=logger.info):
         to_send = self._send_command(COMMAND_NUM.HAVE_DATA.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.HAVE_DATA.value)
@@ -288,7 +291,7 @@ class TestBench():
         except:
             return answer
     @locked
-    def get_state(self):
+    def get_state(self, print=logger.info):
         to_send = self._send_command(COMMAND_NUM.GET_STATE.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.GET_STATE.value)
@@ -311,7 +314,7 @@ class TestBench():
             print("Strange answer")
             return answer
     @locked
-    def start_ota(self):
+    def start_ota(self, print=logger.info):
         to_send = self._send_command(COMMAND_NUM.START_OTA.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.START_OTA.value)
@@ -326,7 +329,7 @@ class TestBench():
             return answer
 
     @locked
-    def chunk_ota(self, chunk):
+    def chunk_ota(self, chunk, print=logger.info):
         if len(chunk) < 2000:
             chunk = chunk + b"\xFF" * (2000 - len(chunk))
         to_send = self._send_command(COMMAND_NUM.CHUNK_OTA.value, chunk)
@@ -343,7 +346,7 @@ class TestBench():
             return answer
 
     @locked
-    def check_ota(self):
+    def check_ota(self, print=logger.info):
         to_send = self._send_command(COMMAND_NUM.OTA_GET_READY.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.OTA_GET_READY.value)
@@ -358,7 +361,7 @@ class TestBench():
             return answer
 
     @locked
-    def finalize_ota(self):
+    def finalize_ota(self, print=logger.info):
         to_send = self._send_command(COMMAND_NUM.CMD_OTA_FINALIZE.value, b"")
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.CMD_OTA_FINALIZE.value)
