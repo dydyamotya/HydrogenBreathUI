@@ -234,7 +234,7 @@ class MainWidget(QtWidgets.QWidget):
                     elif self.already_waited < int(self.before_trigger_time_lineedit.text()):
                         if not self.gas_already_sent:
                             host, port = self.parent().settings_widget.get_gas_stand_settings()
-                            set_gas_state("0", host, port)
+                            set_gas_state("1", host, port)
                             self.gas_already_sent = True
                         self.already_waited += 1
                 elif state == 1: # exhale
@@ -243,7 +243,7 @@ class MainWidget(QtWidgets.QWidget):
                 elif state == 2: # measuring
                     if not self.gas_already_sent:
                         host, port = self.parent().settings_widget.get_gas_stand_settings()
-                        set_gas_state("1", host, port)
+                        set_gas_state("2", host, port)
                         self.gas_already_sent = True
                 elif state == 3: # purging
                     self.gas_already_sent = False
