@@ -289,10 +289,12 @@ class MainWidget(QtWidgets.QWidget):
                 ms_temperatures = data[:, sensor_number * 3 + 2]
                 R = (1  + alpha * (ms_temperatures - T0)) * (R0 - Rc) + Rc
                 ms_voltages = data[:, sensor_number * 3] # * R / (R + 20)
+                ms_voltages_recalc = data[:, sensor_number * 3] * R / (R + 20)
             else:
                 ms_temperatures = []
                 ms_voltages = []
-            self.plot_widget.plot_heater_calibration(voltages, temperatures, ms_voltages, ms_temperatures)
+                ms_voltages_recalc = []
+            self.plot_widget.plot_heater_calibration(voltages, temperatures, ms_voltages, ms_temperatures, ms_voltages_recalc, ms_temperatures)
 
     def open_conces_gas_stand_file(self):
         filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Open gasstand_file", "./", "*")
