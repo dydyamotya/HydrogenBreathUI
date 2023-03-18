@@ -286,9 +286,9 @@ class MainWidget(QtWidgets.QWidget):
                 T0 = float(config["T0"]["T0"].replace(",", "."))
 
                 data = np.loadtxt(filename, skiprows=1)
-                ms_temperatures = data[:, sensor_number * 2 + 1]
+                ms_temperatures = data[:, sensor_number * 3 + 2]
                 R = (1  + alpha * (ms_temperatures - T0)) * (R0 - Rc) + Rc
-                ms_voltages = data[:, sensor_number * 2] # * R / (R + 20)
+                ms_voltages = data[:, sensor_number * 3] # * R / (R + 20)
             else:
                 ms_temperatures = []
                 ms_voltages = []

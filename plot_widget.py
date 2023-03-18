@@ -20,7 +20,7 @@ class PlotWidget(pg.PlotWidget):
         self.getPlotItem().setLogMode(y=False)
         self.getPlotItem().setLabel("left", "Temperature", units="°C")
         self.getPlotItem().setLabel("bottom", "Voltage", units="V")
-        data = np.hstack([voltages, temperatures, ms_voltages, ms_temperatures])
+        data = np.vstack([voltages, temperatures, ms_voltages, ms_temperatures])
         np.savetxt(pathlib.Path.cwd() / "plot_data.csv", data)
         self.plot(x=voltages, y=temperatures, pen=pg.mkPen("green"))
         self.plot(x=ms_voltages, y=ms_temperatures, pen=pg.mkPen("blue"))
