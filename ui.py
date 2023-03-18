@@ -274,11 +274,12 @@ class MainWidget(QtWidgets.QWidget):
         if self._pre_device_command():
             voltages, temperatures = self.device_bench.get_heater_calibration()
             filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get cal file", dir="./")
+            filename_par, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get par file", dir="./")
             if filename:
                 sensor_number, *_ = QtWidgets.QInputDialog.getInt(self, "What is the number of sensor you wanna see",
                                                                   "Sensor number:", 0)
                 config = configparser.ConfigParser()
-                config.read(filename[:-3] + "par")
+                config.read(filename_par)
                 R0 = float(config["R0"][f"R0_{sensor_number}"].replace(",", "."))/100
                 Rc = float(config["Rc"][f"Rc_{sensor_number}"].replace(",", "."))/100
                 alpha = float(config["a"][f"a0_{sensor_number}"].replace(",", "."))
@@ -287,7 +288,7 @@ class MainWidget(QtWidgets.QWidget):
                 data = np.loadtxt(filename, skiprows=1)
                 ms_temperatures = data[:, sensor_number * 2 + 1]
                 R = (1  + alpha * (ms_temperatures - T0)) * (R0 - Rc) + Rc
-                ms_voltages = data[:, sensor_number * 2] * R / (R + 20)
+                ms_voltages = data[:, sensor_number * 2] # * R / (R + 20)
             else:
                 ms_temperatures = []
                 ms_voltages = []
