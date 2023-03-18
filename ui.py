@@ -70,7 +70,8 @@ class MainWidget(QtWidgets.QWidget):
 
 
         self.device_bench: typing.Optional[MSDesktopDevice] = None
-        self.data_logger = DataLogger(pathlib.Path.cwd())
+        self.data_logger_path = pathlib.Path.cwd()
+        self.data_logger = DataLogger(self.data_logger_path)
 
         main_layout = QtWidgets.QVBoxLayout(self)
 
@@ -131,6 +132,7 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Start", self.start_timer)
         add_button_to_groupbox("Stop", self.stop_timer)
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
+        add_button_to_groupbox("Upload cal", self.upload_calibration)
         add_button_to_groupbox("Upload firmware", self.upload_firmware)
 
         times_layout = QtWidgets.QFormLayout()
@@ -217,6 +219,7 @@ class MainWidget(QtWidgets.QWidget):
         else:
             self.already_waited = 0
             self.gas_already_sent = False
+            self.data_logger = DataLogger(self.data_logger_path)
             self.timer.start()
 
     def stop_timer(self):
@@ -339,3 +342,19 @@ class MainWidget(QtWidgets.QWidget):
             else:
                 self.parent().statusBar().showMessage(f"Cant start OTA with code {ota_answer}")
 
+    def upload_calibration(self):
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose calibration file", "./", "*")
+        if filename:
+            with open(filename, "r") as fd:
+                values = tuple(map(lambda x: float(x.strip()), fd.readlines()))
+                if len(values) != 301:
+                    self.parent().statusBar().showMessage("Calibration not loaded")
+                    msg_box = QtWidgets.QMessageBox()
+                    msg_box.setText("Len of array is not equal to 301")
+                    msg_box.exec_()
+                    return
+                answer = self.device_bench.set_cycle(values)
+                if answer[0] == 0:
+                    self.parent().statusBar().showMessage("Calibration loaded")
+                else:
+                    self.parent().statusBar().showMessage("Calibration not loaded")
