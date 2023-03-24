@@ -13,6 +13,7 @@ import pathlib
 import configparser
 import numpy as np
 from time import sleep
+from itertools import repeat, chain
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,9 @@ class MainWidget(QtWidgets.QWidget):
         gas_stand_groupbox_layout = QtWidgets.QVBoxLayout(gas_stand_groupbox)
 
         conc_lineedit_layout = QtWidgets.QHBoxLayout()
+        times_repeat_layout = QtWidgets.QHBoxLayout()
         gas_stand_groupbox_layout.addLayout(conc_lineedit_layout)
+        gas_stand_groupbox_layout.addLayout(times_repeat_layout)
 
         #---------------------
         self.conc_lineedit = QtWidgets.QLineEdit()
@@ -92,6 +95,12 @@ class MainWidget(QtWidgets.QWidget):
         conc_lineedit_layout.addWidget(QtWidgets.QLabel("Path to file with gas program (you can enter state number here and hit Enter button to change manually)"))
         conc_lineedit_layout.addWidget(self.conc_lineedit)
         conc_lineedit_layout.addWidget(opengasstand_button)
+
+        self.times_repeat_lineedit = QtWidgets.QLineEdit()
+        self.times_repeat_lineedit.setValidator(QIntValidator(self))
+        times_repeat_layout.addWidget(QtWidgets.QLabel("Times to repeat gas state"))
+        times_repeat_layout.addWidget(self.times_repeat_lineedit)
+
 
         #----------------------
         buttons_gas_stand_layout = QtWidgets.QHBoxLayout()
@@ -219,8 +228,14 @@ class MainWidget(QtWidgets.QWidget):
         else:
             self.already_waited = 0
             self.gas_already_sent = False
+            self.gas_sensor_state = 0
             self.data_logger = DataLogger(self.data_logger_path)
             self.timer.start()
+            if pathlib.Path(self.conc_lineedit.text()).exists():
+                with open(self.conc_lineedit.text(), "r") as fd:
+                    lines = chain(*(repeat(line.strip(), int(self.times_repeat_lineedit.text()) * 2) for line in fd.readlines()))
+                self.gas_iterator = iter(lines)
+
 
     def stop_timer(self):
         self.timer.stop()
@@ -237,7 +252,7 @@ class MainWidget(QtWidgets.QWidget):
                     elif self.already_waited < int(self.before_trigger_time_lineedit.text()):
                         if not self.gas_already_sent:
                             host, port = self.parent().settings_widget.get_gas_stand_settings()
-                            set_gas_state("1", host, port)
+                            set_gas_state(str(2*next(self.gas_iterator) + 1), host, port)
                             self.gas_already_sent = True
                         self.already_waited += 1
                 elif state == 1: # exhale
@@ -246,7 +261,8 @@ class MainWidget(QtWidgets.QWidget):
                 elif state == 2: # measuring
                     if not self.gas_already_sent:
                         host, port = self.parent().settings_widget.get_gas_stand_settings()
-                        set_gas_state("2", host, port)
+                        self.gas_sensor_state = 2*next(self.gas_iterator) + 2
+                        set_gas_state(str(self.gas_sensor_state), host, port)
                         self.gas_already_sent = True
                 elif state == 3: # purging
                     self.gas_already_sent = False
@@ -255,7 +271,7 @@ class MainWidget(QtWidgets.QWidget):
                         self.plot_widget.plot_answer(times, resistances)
                         h2conc, *_ = self.device_bench.get_result()
                         self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
-                        self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state)
+                        self.data_logger.save_data(resistances, h2conc, self.gas_sensor_state)
                 else:
                     pass
             else:

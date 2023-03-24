@@ -13,5 +13,5 @@ class DataLogger():
             state = -1
         state = int(state)
         with self.file.open("a") as fd:
-            np.hstack([resistances, conc, state]).tofile(fd, sep="\t")
+            np.hstack([datetime.datetime.now().timestamp(), resistances, conc, state]).tofile(fd, sep="\t")
             fd.write("\n")
