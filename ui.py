@@ -231,9 +231,10 @@ class MainWidget(QtWidgets.QWidget):
             self.gas_sensor_state = 0
             self.data_logger = DataLogger(self.data_logger_path)
             self.timer.start()
+            repeat_times = int(self.times_repeat_lineedit.text())
             if pathlib.Path(self.conc_lineedit.text()).exists():
                 with open(self.conc_lineedit.text(), "r") as fd:
-                    lines = chain(*(repeat(line.strip(), int(self.times_repeat_lineedit.text()) * 2) for line in fd.readlines()))
+                    lines = chain(*(repeat(int(line.strip()), repeat_times * 2) for line in fd.readlines()))
                 self.gas_iterator = iter(lines)
 
 
