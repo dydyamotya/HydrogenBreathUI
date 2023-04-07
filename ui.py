@@ -229,13 +229,15 @@ class MainWidget(QtWidgets.QWidget):
             self.already_waited = 0
             self.gas_already_sent = False
             self.gas_sensor_state = 0
+            self.gas_iterator_state = 0
+            self.gas_iterator_counter = 0
             self.data_logger = DataLogger(self.data_logger_path)
             self.timer.start()
-            repeat_times = int(self.times_repeat_lineedit.text())
+            self.repeat_times = int(self.times_repeat_lineedit.text())
             if pathlib.Path(self.conc_lineedit.text()).exists():
                 with open(self.conc_lineedit.text(), "r") as fd:
-                    lines = chain(*(repeat(int(line.strip()), repeat_times * 2) for line in fd.readlines()))
-                self.gas_iterator = iter(lines)
+                    lines = chain(*(repeat(int(line.strip()), self.repeat_times * 2) for line in fd.readlines()))
+                self.gas_iterator = iter(enumerate(lines))
 
 
     def stop_timer(self):
@@ -244,7 +246,7 @@ class MainWidget(QtWidgets.QWidget):
     def get_all_results(self):
         if self._pre_device_command():
             state = self.device_bench.get_state()
-            self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}")
+            self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}, state: {self.gas_iterator_state}, counter: {(self.gas_iterator_counter % self.repeat_times) // 2}")
             if self.need_to_trigger_measurement.isChecked():
                 if state == 0: # idle
                     if self.already_waited == int(self.before_trigger_time_lineedit.text()):
@@ -253,7 +255,8 @@ class MainWidget(QtWidgets.QWidget):
                     elif self.already_waited < int(self.before_trigger_time_lineedit.text()):
                         if not self.gas_already_sent:
                             host, port = self.parent().settings_widget.get_gas_stand_settings()
-                            set_gas_state(str(2*next(self.gas_iterator) + 1), host, port)
+                            self.gas_iterator_counter, self.gas_iterator_state = next(self.gas_iterator)
+                            set_gas_state(str(2*self.gas_iterator_state + 1), host, port)
                             self.gas_already_sent = True
                         self.already_waited += 1
                 elif state == 1: # exhale
@@ -262,7 +265,8 @@ class MainWidget(QtWidgets.QWidget):
                 elif state == 2: # measuring
                     if not self.gas_already_sent:
                         host, port = self.parent().settings_widget.get_gas_stand_settings()
-                        self.gas_sensor_state = 2*next(self.gas_iterator) + 2
+                        self.gas_iterator_counter, self.gas_iterator_state = next(self.gas_iterator)
+                        self.gas_sensor_state = 2*self.gas_iterator_state + 2
                         set_gas_state(str(self.gas_sensor_state), host, port)
                         self.gas_already_sent = True
                 elif state == 3: # purging
