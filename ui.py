@@ -251,7 +251,7 @@ class MainWidget(QtWidgets.QWidget):
                     if not self.need_to_wait_for_scientist.isChecked():
                         lines = chain(*(repeat(int(line.strip()), self.repeat_times * 2) for line in fd.readlines()))
                     else:
-                        lines = (int(line.strip()) for line in fd)
+                        lines = (int(line.strip()) for line in fd.readlines())
                 self.gas_iterator = iter(lines)
                 if self.need_to_wait_for_scientist.isChecked():
                     self.gas_iterator_state = next(self.gas_iterator)
