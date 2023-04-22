@@ -155,8 +155,19 @@ class MainWidget(QtWidgets.QWidget):
         times_layout.addRow("Time to trigger measurement: ", self.trigger_time_lineedit)
 
 
-        self.need_to_trigger_measurement = QtWidgets.QCheckBox("Trigger measurement")
+        self.need_to_trigger_measurement = QtWidgets.QCheckBox("Автоматическое переключение состояний устройства")
         device_groupbox_layout.addWidget(self.need_to_trigger_measurement)
+
+        need_to_wait_scientist_layout = QtWidgets.QHBoxLayout()
+
+        self.need_to_wait_for_scientist = QtWidgets.QCheckBox("Ручное управление")
+        need_to_wait_scientist_layout.addWidget(self.need_to_wait_for_scientist)
+
+        next_gas_state_button = QtWidgets.QPushButton("Следующее состояние")
+        next_gas_state_button.clicked.connect(self.next_gas_iterator_state)
+        need_to_wait_scientist_layout.addWidget(next_gas_state_button)
+
+        device_groupbox_layout.addLayout(need_to_wait_scientist_layout)
 
         self.plot_widget = PlotWidget()
         device_groupbox_layout.addWidget(self.plot_widget)
@@ -183,7 +194,7 @@ class MainWidget(QtWidgets.QWidget):
         device_port = self.parent().settings_widget.get_device_port()
         if not device_port:
             msg_box = QtWidgets.QMessageBox()
-            msg_box.setText("Device port not set")
+            msg_box.setText("Не выбран порт устройства")
             msg_box.exec_()
             return
         if self.device_bench is not None:
@@ -197,7 +208,7 @@ class MainWidget(QtWidgets.QWidget):
     def _pre_device_command(self):
         if self.device_bench is None:
             msg_box = QtWidgets.QMessageBox()
-            msg_box.setText("Initiate a device first")
+            msg_box.setText("Сначала инициализируйте устройство кнопочкой Init")
             msg_box.exec_()
             return 0
         else:
@@ -223,7 +234,7 @@ class MainWidget(QtWidgets.QWidget):
                 int(self.trigger_time_lineedit.text())
         except ValueError:
             msg_box = QtWidgets.QMessageBox()
-            msg_box.setText("Not started. Specify integer numbers in time fields")
+            msg_box.setText("Не, не начали. Укажите числовые целые значения в полях для времен ниже")
             msg_box.exec_()
         else:
             self.already_waited = 0
@@ -231,22 +242,42 @@ class MainWidget(QtWidgets.QWidget):
             self.gas_sensor_state = 0
             self.gas_iterator_state = 0
             self.gas_iterator_counter = 0
+            self.prev_gas_iterator_state = None
             self.data_logger = DataLogger(self.data_logger_path)
             self.timer.start()
             self.repeat_times = int(self.times_repeat_lineedit.text())
             if pathlib.Path(self.conc_lineedit.text()).exists():
                 with open(self.conc_lineedit.text(), "r") as fd:
-                    lines = chain(*(repeat(int(line.strip()), self.repeat_times * 2) for line in fd.readlines()))
-                self.gas_iterator = iter(enumerate(lines))
+                    if not self.need_to_wait_for_scientist.isChecked():
+                        lines = chain(*(repeat(int(line.strip()), self.repeat_times * 2) for line in fd.readlines()))
+                    else:
+                        lines = (int(line.strip()) for line in fd)
+                self.gas_iterator = iter(lines)
+                if self.need_to_wait_for_scientist.isChecked():
+                    self.gas_iterator_state = next(self.gas_iterator)
 
 
     def stop_timer(self):
         self.timer.stop()
 
+    def next_gas_iterator_state(self):
+        if not self.need_to_wait_for_scientist.isChecked():
+            msg_box = QtWidgets.QMessageBox()
+            msg_box.setWindowTitle("Внимание!!!")
+            msg_box.setText("Вы уверены?")
+            msg_box.setInformativeText("Вы не выбрали галочку про ручное управление. Уверены, что хотите это сделать?")
+            msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            answer = msg_box.exec_()
+            if answer == QtWidgets.QMessageBox.Yes:
+                self.gas_iterator_state = next(self.gas_iterator)
+                self.gas_iterator_state = next(self.gas_iterator)
+        else:
+            self.gas_iterator_state = next(self.gas_iterator)
+
     def get_all_results(self):
         if self._pre_device_command():
             state = self.device_bench.get_state()
-            self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}, state: {self.gas_iterator_state}, counter: {(self.gas_iterator_counter % self.repeat_times) // 2}")
+            self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}, state: {self.gas_iterator_state}, counter: {self.gas_iterator_counter}")
             if self.need_to_trigger_measurement.isChecked():
                 if state == 0: # idle
                     if self.already_waited == int(self.before_trigger_time_lineedit.text()):
@@ -255,7 +286,8 @@ class MainWidget(QtWidgets.QWidget):
                     elif self.already_waited < int(self.before_trigger_time_lineedit.text()):
                         if not self.gas_already_sent:
                             host, port = self.parent().settings_widget.get_gas_stand_settings()
-                            self.gas_iterator_counter, self.gas_iterator_state = next(self.gas_iterator)
+                            if not self.need_to_wait_for_scientist.isChecked():
+                                self.gas_iterator_state = next(self.gas_iterator)
                             set_gas_state(str(2*self.gas_iterator_state + 1), host, port)
                             self.gas_already_sent = True
                         self.already_waited += 1
@@ -265,7 +297,13 @@ class MainWidget(QtWidgets.QWidget):
                 elif state == 2: # measuring
                     if not self.gas_already_sent:
                         host, port = self.parent().settings_widget.get_gas_stand_settings()
-                        self.gas_iterator_counter, self.gas_iterator_state = next(self.gas_iterator)
+                        if not self.need_to_wait_for_scientist.isChecked():
+                            self.gas_iterator_state = next(self.gas_iterator)
+                        if self.gas_iterator_state == self.prev_gas_iterator_state:
+                            self.gas_iterator_counter += 1
+                        else:
+                            self.gas_iterator_counter = 1
+                            self.prev_gas_iterator_state = self.gas_iterator_state
                         self.gas_sensor_state = 2*self.gas_iterator_state + 2
                         set_gas_state(str(self.gas_sensor_state), host, port)
                         self.gas_already_sent = True
@@ -318,7 +356,7 @@ class MainWidget(QtWidgets.QWidget):
             self.plot_widget.plot_heater_calibration(voltages, temperatures, ms_voltages, ms_temperatures, ms_voltages_recalc, ms_temperatures)
 
     def open_conces_gas_stand_file(self):
-        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Open gasstand_file", "./", "*")
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Открыть файл для газового стенда", "./", "*")
         if filename:
             try:
                 host, port = self.parent().settings_widget.get_gas_stand_settings()
