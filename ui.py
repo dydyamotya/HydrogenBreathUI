@@ -13,6 +13,7 @@ import pathlib
 import configparser
 import numpy as np
 from time import sleep
+from itertools import repeat, chain
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,8 @@ class MainWidget(QtWidgets.QWidget):
 
 
         self.device_bench: typing.Optional[MSDesktopDevice] = None
-        self.data_logger = DataLogger(pathlib.Path.cwd())
+        self.data_logger_path = pathlib.Path.cwd()
+        self.data_logger = DataLogger(self.data_logger_path)
 
         main_layout = QtWidgets.QVBoxLayout(self)
 
@@ -79,7 +81,9 @@ class MainWidget(QtWidgets.QWidget):
         gas_stand_groupbox_layout = QtWidgets.QVBoxLayout(gas_stand_groupbox)
 
         conc_lineedit_layout = QtWidgets.QHBoxLayout()
+        times_repeat_layout = QtWidgets.QHBoxLayout()
         gas_stand_groupbox_layout.addLayout(conc_lineedit_layout)
+        gas_stand_groupbox_layout.addLayout(times_repeat_layout)
 
         #---------------------
         self.conc_lineedit = QtWidgets.QLineEdit()
@@ -91,6 +95,12 @@ class MainWidget(QtWidgets.QWidget):
         conc_lineedit_layout.addWidget(QtWidgets.QLabel("Path to file with gas program (you can enter state number here and hit Enter button to change manually)"))
         conc_lineedit_layout.addWidget(self.conc_lineedit)
         conc_lineedit_layout.addWidget(opengasstand_button)
+
+        self.times_repeat_lineedit = QtWidgets.QLineEdit()
+        self.times_repeat_lineedit.setValidator(QIntValidator(self))
+        times_repeat_layout.addWidget(QtWidgets.QLabel("Times to repeat gas state"))
+        times_repeat_layout.addWidget(self.times_repeat_lineedit)
+
 
         #----------------------
         buttons_gas_stand_layout = QtWidgets.QHBoxLayout()
@@ -131,6 +141,7 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Start", self.start_timer)
         add_button_to_groupbox("Stop", self.stop_timer)
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
+        add_button_to_groupbox("Upload cal", self.upload_calibration)
         add_button_to_groupbox("Upload firmware", self.upload_firmware)
 
         times_layout = QtWidgets.QFormLayout()
@@ -144,8 +155,19 @@ class MainWidget(QtWidgets.QWidget):
         times_layout.addRow("Time to trigger measurement: ", self.trigger_time_lineedit)
 
 
-        self.need_to_trigger_measurement = QtWidgets.QCheckBox("Trigger measurement")
+        self.need_to_trigger_measurement = QtWidgets.QCheckBox("Автоматическое переключение состояний устройства")
         device_groupbox_layout.addWidget(self.need_to_trigger_measurement)
+
+        need_to_wait_scientist_layout = QtWidgets.QHBoxLayout()
+
+        self.need_to_wait_for_scientist = QtWidgets.QCheckBox("Ручное управление")
+        need_to_wait_scientist_layout.addWidget(self.need_to_wait_for_scientist)
+
+        next_gas_state_button = QtWidgets.QPushButton("Следующее состояние")
+        next_gas_state_button.clicked.connect(self.next_gas_iterator_state)
+        need_to_wait_scientist_layout.addWidget(next_gas_state_button)
+
+        device_groupbox_layout.addLayout(need_to_wait_scientist_layout)
 
         self.plot_widget = PlotWidget()
         device_groupbox_layout.addWidget(self.plot_widget)
@@ -172,7 +194,7 @@ class MainWidget(QtWidgets.QWidget):
         device_port = self.parent().settings_widget.get_device_port()
         if not device_port:
             msg_box = QtWidgets.QMessageBox()
-            msg_box.setText("Device port not set")
+            msg_box.setText("Не выбран порт устройства")
             msg_box.exec_()
             return
         if self.device_bench is not None:
@@ -186,7 +208,7 @@ class MainWidget(QtWidgets.QWidget):
     def _pre_device_command(self):
         if self.device_bench is None:
             msg_box = QtWidgets.QMessageBox()
-            msg_box.setText("Initiate a device first")
+            msg_box.setText("Сначала инициализируйте устройство кнопочкой Init")
             msg_box.exec_()
             return 0
         else:
@@ -212,20 +234,50 @@ class MainWidget(QtWidgets.QWidget):
                 int(self.trigger_time_lineedit.text())
         except ValueError:
             msg_box = QtWidgets.QMessageBox()
-            msg_box.setText("Not started. Specify integer numbers in time fields")
+            msg_box.setText("Не, не начали. Укажите числовые целые значения в полях для времен ниже")
             msg_box.exec_()
         else:
             self.already_waited = 0
             self.gas_already_sent = False
+            self.gas_sensor_state = 0
+            self.gas_iterator_state = 0
+            self.gas_iterator_counter = 0
+            self.prev_gas_iterator_state = None
+            self.data_logger = DataLogger(self.data_logger_path)
             self.timer.start()
+            self.repeat_times = int(self.times_repeat_lineedit.text())
+            if pathlib.Path(self.conc_lineedit.text()).exists():
+                with open(self.conc_lineedit.text(), "r") as fd:
+                    if not self.need_to_wait_for_scientist.isChecked():
+                        lines = chain(*(repeat(int(line.strip()), self.repeat_times * 2) for line in fd.readlines()))
+                    else:
+                        lines = (int(line.strip()) for line in fd.readlines())
+                self.gas_iterator = iter(lines)
+                if self.need_to_wait_for_scientist.isChecked():
+                    self.gas_iterator_state = next(self.gas_iterator)
+
 
     def stop_timer(self):
         self.timer.stop()
 
+    def next_gas_iterator_state(self):
+        if not self.need_to_wait_for_scientist.isChecked():
+            msg_box = QtWidgets.QMessageBox()
+            msg_box.setWindowTitle("Внимание!!!")
+            msg_box.setText("Вы уверены?")
+            msg_box.setInformativeText("Вы не выбрали галочку про ручное управление. Уверены, что хотите это сделать?")
+            msg_box.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            answer = msg_box.exec_()
+            if answer == QtWidgets.QMessageBox.Yes:
+                self.gas_iterator_state = next(self.gas_iterator)
+                self.gas_iterator_state = next(self.gas_iterator)
+        else:
+            self.gas_iterator_state = next(self.gas_iterator)
+
     def get_all_results(self):
         if self._pre_device_command():
             state = self.device_bench.get_state()
-            self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}")
+            self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}, state: {self.gas_iterator_state}, counter: {self.gas_iterator_counter}")
             if self.need_to_trigger_measurement.isChecked():
                 if state == 0: # idle
                     if self.already_waited == int(self.before_trigger_time_lineedit.text()):
@@ -234,7 +286,9 @@ class MainWidget(QtWidgets.QWidget):
                     elif self.already_waited < int(self.before_trigger_time_lineedit.text()):
                         if not self.gas_already_sent:
                             host, port = self.parent().settings_widget.get_gas_stand_settings()
-                            set_gas_state("0", host, port)
+                            if not self.need_to_wait_for_scientist.isChecked():
+                                self.gas_iterator_state = next(self.gas_iterator)
+                            set_gas_state(str(2*self.gas_iterator_state + 1), host, port)
                             self.gas_already_sent = True
                         self.already_waited += 1
                 elif state == 1: # exhale
@@ -243,7 +297,15 @@ class MainWidget(QtWidgets.QWidget):
                 elif state == 2: # measuring
                     if not self.gas_already_sent:
                         host, port = self.parent().settings_widget.get_gas_stand_settings()
-                        set_gas_state("1", host, port)
+                        if not self.need_to_wait_for_scientist.isChecked():
+                            self.gas_iterator_state = next(self.gas_iterator)
+                        if self.gas_iterator_state == self.prev_gas_iterator_state:
+                            self.gas_iterator_counter += 1
+                        else:
+                            self.gas_iterator_counter = 1
+                            self.prev_gas_iterator_state = self.gas_iterator_state
+                        self.gas_sensor_state = 2*self.gas_iterator_state + 2
+                        set_gas_state(str(self.gas_sensor_state), host, port)
                         self.gas_already_sent = True
                 elif state == 3: # purging
                     self.gas_already_sent = False
@@ -252,7 +314,7 @@ class MainWidget(QtWidgets.QWidget):
                         self.plot_widget.plot_answer(times, resistances)
                         h2conc, *_ = self.device_bench.get_result()
                         self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
-                        self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state, temperatures)
+                        self.data_logger.save_data(resistances, h2conc,self.gas_sensor_state, temperatures)
                 else:
                     pass
             else:
@@ -271,27 +333,30 @@ class MainWidget(QtWidgets.QWidget):
         if self._pre_device_command():
             voltages, temperatures = self.device_bench.get_heater_calibration()
             filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get cal file", dir="./")
+            filename_par, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get par file", dir="./")
             if filename:
                 sensor_number, *_ = QtWidgets.QInputDialog.getInt(self, "What is the number of sensor you wanna see",
                                                                   "Sensor number:", 0)
                 config = configparser.ConfigParser()
-                config.read(filename[:-3] + "par")
+                config.read(filename_par)
                 R0 = float(config["R0"][f"R0_{sensor_number}"].replace(",", "."))/100
                 Rc = float(config["Rc"][f"Rc_{sensor_number}"].replace(",", "."))/100
                 alpha = float(config["a"][f"a0_{sensor_number}"].replace(",", "."))
                 T0 = float(config["T0"]["T0"].replace(",", "."))
 
                 data = np.loadtxt(filename, skiprows=1)
-                ms_temperatures = data[:, sensor_number * 2 + 1]
+                ms_temperatures = data[:, sensor_number * 3 + 2]
                 R = (1  + alpha * (ms_temperatures - T0)) * (R0 - Rc) + Rc
-                ms_voltages = data[:, sensor_number * 2] * R / (R + 20)
+                ms_voltages = data[:, sensor_number * 3] # * R / (R + 20)
+                ms_voltages_recalc = data[:, sensor_number * 3] * R / (R + 20)
             else:
                 ms_temperatures = []
                 ms_voltages = []
-            self.plot_widget.plot_heater_calibration(voltages, temperatures, ms_voltages, ms_temperatures)
+                ms_voltages_recalc = []
+            self.plot_widget.plot_heater_calibration(voltages, temperatures, ms_voltages, ms_temperatures, ms_voltages_recalc, ms_temperatures)
 
     def open_conces_gas_stand_file(self):
-        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Open gasstand_file", "./", "*")
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Открыть файл для газового стенда", "./", "*")
         if filename:
             try:
                 host, port = self.parent().settings_widget.get_gas_stand_settings()
@@ -339,3 +404,19 @@ class MainWidget(QtWidgets.QWidget):
             else:
                 self.parent().statusBar().showMessage(f"Cant start OTA with code {ota_answer}")
 
+    def upload_calibration(self):
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose calibration file", "./", "*")
+        if filename:
+            with open(filename, "r") as fd:
+                values = tuple(map(lambda x: float(x.strip()), fd.readlines()))
+                if len(values) != 301:
+                    self.parent().statusBar().showMessage("Calibration not loaded")
+                    msg_box = QtWidgets.QMessageBox()
+                    msg_box.setText("Len of array is not equal to 301")
+                    msg_box.exec_()
+                    return
+                answer = self.device_bench.set_cycle(values)
+                if answer[0] == 0:
+                    self.parent().statusBar().showMessage("Calibration loaded")
+                else:
+                    self.parent().statusBar().showMessage("Calibration not loaded")

@@ -375,6 +375,7 @@ class MSDesktopDevice():
             print("Strange answer")
             return answer
 
+
 class PlaceHolderDevice():
     def __init__(self):
         class SerPlaceHolder():
