@@ -1,3 +1,5 @@
+import typing
+
 import serial
 import struct
 import crcmod
@@ -7,9 +9,12 @@ import functools
 import numpy as np
 import logging
 
+from collections import namedtuple
+
 logger = logging.getLogger(__name__)
 
-
+HeaterParamsTuple = namedtuple("HeaterParamsTuple", "tempco, rt_resistance, rt_temp, r_corr, cal_curve_ambient, gain, offset, cal_calib_interval, cal_calibration_enable")
+HeaterCalTransformTuple = namedtuple("HeaterCalTransformTuple", "k, b")
 class CRCCalculator():
     def __init__(self):
         self.calc = crcmod.mkCrcFun(poly=0x104c11db7, rev=True, initCrc=0, xorOut=0)
@@ -56,6 +61,9 @@ class COMMAND_NUM(enum.Enum):
     OTA_GET_READY = 0xB2
     CMD_OTA_FINALIZE = 0xB3
     CMD_OTA_ABORT = 0xB4
+    CMD_GET_AMBIENT_TEMP = 0x34
+    CMD_GET_HEATER_PARAMS = 0x35
+    CMD_GET_HEATER_CAL_TRANSFORM = 0x36
 
 def form_error_bytes(num):
     return (1 << num).to_bytes(4, 'little')
@@ -375,7 +383,46 @@ class MSDesktopDevice():
             print("Strange answer")
             return answer
 
+    @locked
+    def get_ambient_temp(self, print=logger.info):
+        # CMD_GET_AMBIENT_TEMP = 0x34
+        to_send = self._send_command(COMMAND_NUM.CMD_GET_AMBIENT_TEMP.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_GET_AMBIENT_TEMP.value)
+        try:
+            ambient_temperature, = struct.unpack("<" + "f", answer)
+            return ambient_temperature
+        except:
+            print(f"No ambient temperature in command {COMMAND_NUM.CMD_GET_AMBIENT_TEMP.name} answer")
+            return answer
 
+    @locked
+    def get_heater_params(self, print=logger.info) -> typing.Optional[HeaterParamsTuple]:
+        # CMD_GET_HEATER_PARAMS = 0x35
+        to_send = self._send_command(COMMAND_NUM.CMD_GET_HEATER_PARAMS .value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_GET_HEATER_PARAMS.value)
+        try:
+            heater_params = HeaterParamsTuple._make(struct.unpack("<fffffffq?", answer))
+            print(repr(heater_params))
+            return heater_params
+        except:
+            print(f"No ambient temperature in command {COMMAND_NUM.CMD_GET_HEATER_PARAMS.name} answer")
+            return None
+
+    @locked
+    def get_heater_cal_tranform(self, print=logger.info) -> HeaterCalTransformTuple:
+        # CMD_GET_HEATER_CAL_TRANSFORM = 0x36
+        to_send = self._send_command(COMMAND_NUM.CMD_GET_HEATER_CAL_TRANSFORM.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_GET_HEATER_CAL_TRANSFORM.value)
+        try:
+            heater_cal_params = HeaterCalTransformTuple._make(struct.unpack("<" + "ff", answer))
+            print(repr(heater_cal_params))
+            return heater_cal_params
+        except:
+            print(f"No ambient temperature in command {COMMAND_NUM.CMD_GET_HEATER_CAL_TRANSFORM.name} answer")
+            return HeaterCalTransformTuple(0, 0)
 class PlaceHolderDevice():
     def __init__(self):
         class SerPlaceHolder():
