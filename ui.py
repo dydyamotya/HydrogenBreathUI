@@ -285,7 +285,7 @@ class MainWidget(QtWidgets.QWidget):
         if self._pre_device_command():
             state = self.device_bench.get_state()
             t_ambient = self.device_bench.get_ambient_temp()
-            self.t_ambient_label.setText(f"T_amb: {t_ambient:2.2f} °C")
+            self.t_ambient_label.setText(f"T_amb: {t_ambient:2.2f} °K")
             self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}, state: {self.gas_iterator_state}, counter: {self.gas_iterator_counter}")
             if self.need_to_trigger_measurement.isChecked():
                 if state == 0: # idle
