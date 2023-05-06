@@ -40,8 +40,9 @@ class PlotWidget(pg.PlotWidget):
         self.plot(x=ms_voltages_recalc, y=ms_temperatures_recalc, pen=pg.mkPen("red"))
         self.plot(x=voltages_cal, y=temperatures_cal, pen=pg.mkPen("yellow"))
         if heater_params is not None:
-            html = json2html.json2html.convert(heater_params._asdict())
-            text_item = pg.TextItem(html=html)
+            html = json2html.json2html.convert(heater_params._asdict(),
+                                               table_attributes="style=\"color: #FFF\" border=\"1\"")
+            text_item = pg.TextItem(html=html, border="w", fill=(0, 0, 255, 100))
             self.addItem(text_item)
             text_item.setPos(0, 0)
 

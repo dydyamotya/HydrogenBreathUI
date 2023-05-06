@@ -411,7 +411,7 @@ class MSDesktopDevice():
             return None
 
     @locked
-    def get_heater_cal_tranform(self, print=logger.info) -> HeaterCalTransformTuple:
+    def get_heater_cal_transform(self, print=logger.info) -> HeaterCalTransformTuple:
         # CMD_GET_HEATER_CAL_TRANSFORM = 0x36
         to_send = self._send_command(COMMAND_NUM.CMD_GET_HEATER_CAL_TRANSFORM.value, b"")
         self.ser.write(to_send)
@@ -485,3 +485,14 @@ class PlaceHolderDevice():
             print("Strange answer")
             self.counter += 1
             return 5
+
+    @locked
+    def get_heater_calibration(self, print=logger.info):
+        return np.linspace(0.3, 5, num=401), np.linspace(30, 500, num=401)
+
+    def get_heater_cal_transform(self, print=logger.info):
+        return HeaterCalTransformTuple(100, 0.1)
+
+    def get_heater_params(self, print=logger.info):
+        return HeaterParamsTuple(120, 10, 31, 14, 12, 1242, 12, 12, True)
+

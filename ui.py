@@ -174,8 +174,13 @@ class MainWidget(QtWidgets.QWidget):
         self.plot_widget = PlotWidget()
         device_groupbox_layout.addWidget(self.plot_widget)
 
+
+        labels_layout_device_group = QtWidgets.QHBoxLayout()
+        device_groupbox_layout.addLayout(labels_layout_device_group)
         self.concentration_label = QtWidgets.QLabel("H2 conc: ---")
-        device_groupbox_layout.addWidget(self.concentration_label)
+        self.t_ambient_label = QtWidgets.QLabel("T_amb: ---")
+        labels_layout_device_group.addWidget(self.concentration_label)
+        labels_layout_device_group.addWidget(self.t_ambient_label)
 
 
 
@@ -279,6 +284,8 @@ class MainWidget(QtWidgets.QWidget):
     def get_all_results(self):
         if self._pre_device_command():
             state = self.device_bench.get_state()
+            t_ambient = self.device_bench.get_ambient_temp()
+            self.t_ambient_label.setText(f"T_amb: {t_ambient:2.2f} °C")
             self.parent().statusBar().showMessage(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}, state: {self.gas_iterator_state}, counter: {self.gas_iterator_counter}")
             if self.need_to_trigger_measurement.isChecked():
                 if state == 0: # idle
@@ -324,9 +331,14 @@ class MainWidget(QtWidgets.QWidget):
                     times, temperatures, resistances = self.device_bench.get_cycle()
                     self.plot_widget.plot_answer(times, resistances)
                     h2conc, *_ = self.device_bench.get_result()
-                    self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
+                    self.concentration_label.setText(f"H2 conc: {h2conc:2.4f} ppm")
                     self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state, temperatures)
         else:
+            msg_box = QtWidgets.QMessageBox()
+            msg_box.setWindowTitle("Внимание!!!")
+            msg_box.setText("Связь с устройством потеряна")
+            msg_box.setInformativeText("Ну или прошла рассинхронизация, черт его знает. Скорее первое.")
+            msg_box.exec_()
             self.stop_timer()
 
     def get_heater_calibration(self):
@@ -334,7 +346,7 @@ class MainWidget(QtWidgets.QWidget):
             return
         if self._pre_device_command():
             voltages, temperatures = self.device_bench.get_heater_calibration()
-            heater_cal_transform: HeaterCalTransformTuple = self.device_bench.get_heater_cal_tranform()
+            heater_cal_transform: HeaterCalTransformTuple = self.device_bench.get_heater_cal_transform()
             heater_params = self.device_bench.get_heater_params()
             temperatures_cal = voltages * heater_cal_transform.k + heater_cal_transform.b
             filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get cal file", dir="./")
