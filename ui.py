@@ -323,7 +323,8 @@ class MainWidget(QtWidgets.QWidget):
                         self.plot_widget.plot_answer(times, resistances)
                         h2conc, *_ = self.device_bench.get_result()
                         self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
-                        self.data_logger.save_data(resistances, h2conc,self.gas_sensor_state, temperatures, t_ambient)
+                        heater_cal_transform: HeaterCalTransformTuple = self.device_bench.get_heater_cal_transform()
+                        self.data_logger.save_data(resistances, h2conc,self.gas_sensor_state, temperatures, t_ambient, heater_cal_transform.k, heater_cal_transform.b)
                 else:
                     pass
             else:
@@ -332,7 +333,8 @@ class MainWidget(QtWidgets.QWidget):
                     self.plot_widget.plot_answer(times, resistances)
                     h2conc, *_ = self.device_bench.get_result()
                     self.concentration_label.setText(f"H2 conc: {h2conc:2.4f} ppm")
-                    self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state, temperatures, t_ambient)
+                    heater_cal_transform: HeaterCalTransformTuple = self.device_bench.get_heater_cal_transform()
+                    self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state, temperatures, t_ambient, heater_cal_transform.k, heater_cal_transform.b)
         else:
             msg_box = QtWidgets.QMessageBox()
             msg_box.setWindowTitle("Внимание!!!")
