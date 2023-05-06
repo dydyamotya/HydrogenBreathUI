@@ -403,11 +403,11 @@ class MSDesktopDevice():
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.CMD_GET_HEATER_PARAMS.value)
         try:
-            heater_params = HeaterParamsTuple._make(struct.unpack("<fffffffq?", answer))
+            heater_params = HeaterParamsTuple._make(struct.unpack("<fffffffqi", answer))
             print(repr(heater_params))
             return heater_params
-        except:
-            print(f"No ambient temperature in command {COMMAND_NUM.CMD_GET_HEATER_PARAMS.name} answer")
+        except Exception as e:
+            print(f"No heater params in command {COMMAND_NUM.CMD_GET_HEATER_PARAMS.name} answer, {str(e)}")
             return None
 
     @locked
@@ -420,8 +420,8 @@ class MSDesktopDevice():
             heater_cal_params = HeaterCalTransformTuple._make(struct.unpack("<" + "ff", answer))
             print(repr(heater_cal_params))
             return heater_cal_params
-        except:
-            print(f"No ambient temperature in command {COMMAND_NUM.CMD_GET_HEATER_CAL_TRANSFORM.name} answer")
+        except Exception as e:
+            print(f"No heater cal transform in command {COMMAND_NUM.CMD_GET_HEATER_CAL_TRANSFORM.name} answer, {str(e)}")
             return HeaterCalTransformTuple(0, 0)
 class PlaceHolderDevice():
     def __init__(self):

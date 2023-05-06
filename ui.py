@@ -348,7 +348,7 @@ class MainWidget(QtWidgets.QWidget):
             voltages, temperatures = self.device_bench.get_heater_calibration()
             heater_cal_transform: HeaterCalTransformTuple = self.device_bench.get_heater_cal_transform()
             heater_params = self.device_bench.get_heater_params()
-            temperatures_cal = voltages * heater_cal_transform.k + heater_cal_transform.b
+            voltages_cal = voltages * heater_cal_transform.k + heater_cal_transform.b
             filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get cal file", dir="./")
             filename_par, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get par file", dir="./")
             if filename:
@@ -373,7 +373,7 @@ class MainWidget(QtWidgets.QWidget):
             self.plot_widget.plot_heater_calibration(voltages, temperatures,
                                                      ms_voltages, ms_temperatures,
                                                      ms_voltages_recalc, ms_temperatures,
-                                                     voltages, temperatures_cal, heater_params=heater_params)
+                                                     voltages_cal, temperatures, heater_params=heater_params)
 
     def open_conces_gas_stand_file(self):
         filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Открыть файл для газового стенда", "./", "*")
