@@ -143,7 +143,7 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Start", self.start_timer)
         add_button_to_groupbox("Stop", self.stop_timer)
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
-        add_button_to_groupbox("Upload cal", self.upload_calibration)
+        add_button_to_groupbox("Upload temperature cycle", self.upload_temperature_cycle)
         add_button_to_groupbox("Upload firmware", self.upload_firmware)
 
         times_layout = QtWidgets.QFormLayout()
@@ -426,7 +426,7 @@ class MainWidget(QtWidgets.QWidget):
             else:
                 self.parent().statusBar().showMessage(f"Cant start OTA with code {ota_answer}")
 
-    def upload_calibration(self):
+    def upload_temperature_cycle(self):
         filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose calibration file", "./", "*")
         if filename:
             with open(filename, "r") as fd:
