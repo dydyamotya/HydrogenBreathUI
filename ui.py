@@ -328,7 +328,7 @@ class MainWidget(QtWidgets.QWidget):
                     self.gas_already_sent = False
                     if self.device_bench.get_have_data()[0] == 0 and self.device_bench.get_have_result()[0] == 0:
                         times, temperatures, resistances = self.device_bench.get_cycle()
-                        self.plot_widget.plot_answer(times, resistances)
+                        self.plot_widget.plot_answer(times[1:], resistances[1:])
                         h2conc, *_ = self.device_bench.get_result()
                         conc_set = self.conc_widget.get_conc_for_state(str(self.gas_sensor_state))
                         self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
