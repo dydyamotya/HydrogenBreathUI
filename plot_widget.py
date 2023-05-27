@@ -11,9 +11,15 @@ class PlotWidget(pg.PlotWidget):
     def __init__(self):
         super().__init__()
         self.getPlotItem().showGrid(x=True, y=True)
+        self.legenditem = pg.LegendItem()
+        self.legenditem.setParentItem(self.getPlotItem())
+
+
+        self.legenditem.setVisible(False)
 
     def plot_answer(self, times, resistances):
         self.getPlotItem().clear()
+        self.legenditem.setVisible(False)
         self.getPlotItem().setLogMode(y=True)
         self.getPlotItem().setLabel("left", "Resistance", units="Ω")
         self.getPlotItem().setLabel("bottom", "Time", units="ds")
@@ -40,16 +46,18 @@ class PlotWidget(pg.PlotWidget):
         line3 = self.plot(x=ms_voltages_recalc, y=ms_temperatures_recalc, pen=pg.mkPen("red"))
         line4 = self.plot(x=voltages_cal, y=temperatures_cal, pen=pg.mkPen("yellow"))
 
-        legend = pg.LegendItem()
-        legend.setParentItem(self.getPlotItem())
-        legend.addItem(line1, "Cal voltages")
-        legend.addItem(line2, "Ms")
-        legend.addItem(line3, "Ms recalc")
-        legend.addItem(line4, "Corrected cal")
+        self.legenditem.setVisible(True)
+
+        self.legenditem.clear()
+        self.legenditem.addItem(line1, "Cal voltages")
+        self.legenditem.addItem(line2, "Ms")
+        self.legenditem.addItem(line3, "Ms recalc")
+        self.legenditem.addItem(line4, "Corrected cal")
+
         if heater_params is not None:
             html = json2html.json2html.convert(heater_params._asdict(),
                                                table_attributes="style=\"color: #FFF\" border=\"1\"")
-            text_item = pg.TextItem(html=html, border="w", fill=(0, 0, 255, 100))
-            self.addItem(text_item)
-            text_item.setPos(0, -20)
+            self.text_item = pg.TextItem(html=html, border="w", fill=(0, 0, 255, 100))
+            self.addItem(self.text_item)
+            self.text_item.setPos(0, -20)
 
