@@ -7,6 +7,7 @@ from settings_widget import SettingsWidget
 from plot_widget import PlotWidget
 from logger import DataLogger
 from gas_stand import set_gas_state, GasStandTimer
+from concentration_widget import ConcentrationWidget
 import typing
 import logging
 import pathlib
@@ -21,11 +22,9 @@ logger = logging.getLogger(__name__)
 
 def app():
     app = QtWidgets.QApplication()
-
-    main_widget = MainWidget()
-
     global_application_settings = QtCore.QSettings("MotyaSoft", "HydrogenBreathUI")
 
+    main_widget = MainWidget(settings=global_application_settings)
 
     main_window = QtWidgets.QMainWindow()
     main_window.setWindowTitle("HydrogenBreathUI")
@@ -55,7 +54,7 @@ def app():
 
 
 class MainWidget(QtWidgets.QWidget):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, settings=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.setWindowTitle("HydrogenBreathUI")
         self.gas_already_sent = False
@@ -63,6 +62,8 @@ class MainWidget(QtWidgets.QWidget):
         self.timer = QtCore.QTimer()
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self.get_all_results)
+
+        self.conc_widget = ConcentrationWidget(settings=settings)
 
         self.gasstand_timer = GasStandTimer()
 
@@ -114,10 +115,14 @@ class MainWidget(QtWidgets.QWidget):
         gas_stand_stop_button = QtWidgets.QPushButton("Stop")
         gas_stand_stop_button.clicked.connect(self.gasstand_timer.stop)
 
+        gas_stand_mapping_button = QtWidgets.QPushButton("Gas stand conces")
+        gas_stand_mapping_button.clicked.connect(self.conc_widget.toggle_visible)
+
         self.status_label = QtWidgets.QLabel()
 
         buttons_gas_stand_layout.addWidget(gas_stand_start_button)
         buttons_gas_stand_layout.addWidget(gas_stand_stop_button)
+        buttons_gas_stand_layout.addWidget(gas_stand_mapping_button)
         buttons_gas_stand_layout.addWidget(self.status_label)
         buttons_gas_stand_layout.addStretch()
 
@@ -179,8 +184,10 @@ class MainWidget(QtWidgets.QWidget):
         device_groupbox_layout.addLayout(labels_layout_device_group)
         self.concentration_label = QtWidgets.QLabel("H2 conc: ---")
         self.t_ambient_label = QtWidgets.QLabel("T_amb: ---")
+        self.concentration_set_label = QtWidgets.QLabel("H2 conc set: ---")
         labels_layout_device_group.addWidget(self.concentration_label)
         labels_layout_device_group.addWidget(self.t_ambient_label)
+        labels_layout_device_group.addWidget(self.concentration_set_label)
 
 
 
@@ -265,6 +272,7 @@ class MainWidget(QtWidgets.QWidget):
 
 
     def stop_timer(self):
+        self.conc_widget.drop_loaded()
         self.timer.stop()
 
     def next_gas_iterator_state(self):
@@ -322,9 +330,19 @@ class MainWidget(QtWidgets.QWidget):
                         times, temperatures, resistances = self.device_bench.get_cycle()
                         self.plot_widget.plot_answer(times, resistances)
                         h2conc, *_ = self.device_bench.get_result()
+                        conc_set = self.conc_widget.get_conc_for_state(str(self.gas_sensor_state))
                         self.concentration_label.setText("H2 conc: {:2.4f} ppm".format(h2conc))
+                        self.concentration_set_label.setText("H2 conc set: {} ppm".format(conc_set))
                         heater_cal_transform: HeaterCalTransformTuple = self.device_bench.get_heater_cal_transform()
-                        self.data_logger.save_data(resistances, h2conc,self.gas_sensor_state, temperatures, t_ambient, heater_cal_transform.k, heater_cal_transform.b)
+                        self.data_logger.save_data(resistances,
+                                                   h2conc,
+                                                   self.gas_sensor_state,
+                                                   temperatures,
+                                                   t_ambient,
+                                                   heater_cal_transform.k,
+                                                   heater_cal_transform.b,
+                                                   conc_set
+                                                   )
                 else:
                     pass
             else:
@@ -334,7 +352,10 @@ class MainWidget(QtWidgets.QWidget):
                     h2conc, *_ = self.device_bench.get_result()
                     self.concentration_label.setText(f"H2 conc: {h2conc:2.4f} ppm")
                     heater_cal_transform: HeaterCalTransformTuple = self.device_bench.get_heater_cal_transform()
-                    self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state, temperatures, t_ambient, heater_cal_transform.k, heater_cal_transform.b)
+                    self.data_logger.save_data(resistances, h2conc, self.gasstand_timer.current_state,
+                                               temperatures, t_ambient, heater_cal_transform.k,
+                                               heater_cal_transform.b,
+                                               self.conc_widget.get_conc_for_state(self.gasstand_timer.current_state))
         else:
             msg_box = QtWidgets.QMessageBox()
             msg_box.setWindowTitle("Внимание!!!")
