@@ -105,6 +105,8 @@ class ConcentrationWidget(QtWidgets.QWidget):
                 return self.gas_state_to_conc_dict[gas_state]
             except KeyError:
                 return "-2"
+        else:
+            return "-3"
 
     def drop_loaded(self):
         self.loaded = False
