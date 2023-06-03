@@ -7,8 +7,11 @@ Also it is capable of uploading model and software to device.
 
 Install Python 3.8 (to support Win 7). Other versions maybe also supported.
 
-pip install -r requirements.txt
+1. cd to cloned folder
+2. python -m venv venv
+3. . venv/bin/activate (or whatever shell you use)
+4. pip install -r requirements.txt
 
 Here if you use not 3.8 Python, than just install PySide of any version available for your Python version. Should work.
 
-python main.py
+5. python main.py from activated virtual environment
