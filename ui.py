@@ -192,6 +192,9 @@ class MainWidget(QtWidgets.QWidget):
         labels_layout_device_group.addWidget(self.t_ambient_label)
         labels_layout_device_group.addWidget(self.concentration_set_label)
 
+        self.progress_bar = QtWidgets.QProgressBar()
+        device_groupbox_layout.addWidget(self.progress_bar)
+
 
 
         main_layout.addWidget(device_groupbox)
@@ -503,12 +506,13 @@ class MainWidget(QtWidgets.QWidget):
                 pass
             counter = 0
             good = True
+            size_to_read = 0x1000
             with open(filename, "rb") as fd:
                 values = fd.read()
             filebinarysize = len(values)
+            self.progress_bar.setRange(0, int(filebinarysize/size_to_read) + 1)
             crc = self.device_bench.crc.calc(values)
             model_post_send_answer = self.device_bench.post_model_update_init(1, filebinarysize, crc)
-            size_to_read = 0x1000
             if model_post_send_answer == 0:
                 with open(filename, "rb") as fd:
                     red = fd.read(size_to_read)
@@ -517,6 +521,7 @@ class MainWidget(QtWidgets.QWidget):
                         if model_update_answer == 0:
                             counter += 1
                             self.parent().statusBar().showMessage(f"Model update progress: {counter}")
+                            self.progress_bar.setValue(counter)
                             red = fd.read(size_to_read)
                         else:
                             self.parent().statusBar().showMessage(f"Model update failed on {counter} step with code {model_update_answer}")
