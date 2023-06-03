@@ -15,6 +15,7 @@ import configparser
 import numpy as np
 from time import sleep
 from itertools import repeat, chain
+
 if typing.TYPE_CHECKING:
     from device import HeaterCalTransformTuple, HeaterParamsTuple
 
@@ -150,6 +151,7 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
         add_button_to_groupbox("Upload temperature cycle", self.upload_temperature_cycle)
         add_button_to_groupbox("Upload firmware", self.upload_firmware)
+        add_button_to_groupbox("Upload model", self.upload_model)
 
         times_layout = QtWidgets.QFormLayout()
         device_groupbox_layout.addLayout(times_layout)
@@ -468,3 +470,34 @@ class MainWidget(QtWidgets.QWidget):
                     self.parent().statusBar().showMessage("Calibration loaded")
                 else:
                     self.parent().statusBar().showMessage("Calibration not loaded")
+
+    def upload_model(self):
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose model file", "./", "*")
+        if filename:
+            counter = 0
+            good = True
+            with open(filename, "rb") as fd:
+                values = fd.read()
+            filebinarysize = len(values)
+            crc = self.device_bench.crc(values)
+            model_post_send_answer = self.device_bench.post_model_update_init(1, filebinarysize, crc)
+            size_to_read = 0x1000
+            if model_post_send_answer == 0:
+                with open(filename, "rb") as fd:
+                    red = fd.read(size_to_read)
+                    while good and len(red) != 0:
+                        model_update_answer = self.device_bench.post_model_chunk_send(red)
+                        if model_update_answer == 0:
+                            counter += 1
+                            self.parent().statusBar().showMessage(f"Model update progress: {counter}")
+                            red = fd.read(size_to_read)
+                        else:
+                            self.parent().statusBar().showMessage(f"Model update failed on {counter} step with code {model_update_answer}")
+                            good = False
+                if good:
+                    if self.device_bench.post_model_finalize() == 0:
+                        self.parent().statusBar().showMessage("Successful model update")
+                    else:
+                        self.parent().statusBar().showMessage("Failed finalize model update")
+            else:
+                self.parent().statusBar().showMessage(f"Cant start model update with code {model_post_send_answer}")

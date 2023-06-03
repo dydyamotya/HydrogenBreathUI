@@ -64,6 +64,9 @@ class COMMAND_NUM(enum.Enum):
     CMD_GET_AMBIENT_TEMP = 0x34
     CMD_GET_HEATER_PARAMS = 0x35
     CMD_GET_HEATER_CAL_TRANSFORM = 0x36
+    CMD_MODEL_UPDATE_INIT = 0xA4
+    CMD_MODEL_CHUNK = 0xA5
+    CMD_MODEL_FINALIZE = 0xA6
 
 def form_error_bytes(num):
     return (1 << num).to_bytes(4, 'little')
@@ -423,6 +426,57 @@ class MSDesktopDevice():
         except Exception as e:
             print(f"No heater cal transform in command {COMMAND_NUM.CMD_GET_HEATER_CAL_TRANSFORM.name} answer, {str(e)}")
             return HeaterCalTransformTuple(0, 0)
+
+    @locked
+    def post_model_update_init(self, version, length, crc, print=logger.info) -> int:
+        # CMD_MODEL_UPDATE_INIT = 0xA4
+        payload = struct.pack("<BLL", version, length, crc)
+        to_send = self._send_command(COMMAND_NUM.CMD_MODEL_UPDATE_INIT.value, payload)
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_MODEL_UPDATE_INIT.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return 2
+
+    @locked
+    def post_model_chunk_send(self, chunk, print=logger.info) -> int:
+        # CMD_MODEL_CHUNK = 0xA5
+        to_send = self._send_command(COMMAND_NUM.CMD_MODEL_CHUNK.value, chunk)
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_MODEL_CHUNK.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return 2
+
+    @locked
+    def post_model_finalize(self, print=logger.info) -> int:
+        # CMD_MODEL_FINALIZE = 0xA6
+        to_send = self._send_command(COMMAND_NUM.CMD_MODEL_FINALIZE.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_MODEL_FINALIZE.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return 2
+
+
 class PlaceHolderDevice():
     def __init__(self):
         class SerPlaceHolder():
