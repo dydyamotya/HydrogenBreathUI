@@ -65,6 +65,7 @@ class MainWidget(QtWidgets.QWidget):
         self.timer.timeout.connect(self.get_all_results)
 
         self.conc_widget = ConcentrationWidget(settings=settings)
+        self.settings_qt = settings
 
         self.gasstand_timer = GasStandTimer()
 
@@ -425,8 +426,16 @@ class MainWidget(QtWidgets.QWidget):
             self.status_label.setText("Turned off")
 
     def upload_firmware(self):
-        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose firmware file", "./", "*")
+        try:
+            folder = self.settings_qt.value("firmware_folder", "./")
+        except:
+            folder = './'
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose firmware file", folder, "*")
         if filename:
+            try:
+                self.settings_qt.setValue("firmware_folder", pathlib.Path(filename).parent.as_posix())
+            except:
+                pass
             self.device_bench.suspend_heater()
             while True:
                 state = self.device_bench.get_state()
@@ -438,7 +447,7 @@ class MainWidget(QtWidgets.QWidget):
                     sleep(1)
             counter = 0
             good = True
-            chunk_size = 0x2000
+            chunk_size = 0x1000
             ota_answer = self.device_bench.start_ota()
             if ota_answer == 0:
                 with open(filename, "rb") as fd:
@@ -482,8 +491,16 @@ class MainWidget(QtWidgets.QWidget):
                     self.parent().statusBar().showMessage("Calibration not loaded")
 
     def upload_model(self):
-        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose model file", "./", "*")
+        try:
+            folder = self.settings_qt.value("model_folder", "./")
+        except:
+            folder = './'
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose model file", folder, "*")
         if filename:
+            try:
+                self.settings_qt.setValue("model_folder", pathlib.Path(filename).parent.as_posix())
+            except:
+                pass
             counter = 0
             good = True
             with open(filename, "rb") as fd:
