@@ -532,6 +532,7 @@ class MainWidget(QtWidgets.QWidget):
                             good = False
                 if good:
                     if self.device_bench.post_model_finalize() == 0:
+                        self.progress_bar.setValue(int(filebinarysize/size_to_read) + 1)
                         self.parent().statusBar().showMessage("Successful model update")
                     else:
                         self.parent().statusBar().showMessage("Failed finalize model update")
