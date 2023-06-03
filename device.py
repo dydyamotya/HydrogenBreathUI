@@ -108,7 +108,7 @@ class MSDesktopDevice():
         buffer = escape_data(buffer)
         buffer.append(TECH_BYTES.END_BYTE.value)
         buffer.insert(0, TECH_BYTES.START_BYTE.value)
-        logger.debug(f"{buffer}")
+        logger.debug(f"{len(buffer)}: {buffer}")
         return buffer
 
     def _get_answer(self, need_command):
