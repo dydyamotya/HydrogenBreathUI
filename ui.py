@@ -447,7 +447,7 @@ class MainWidget(QtWidgets.QWidget):
                     sleep(1)
             counter = 0
             good = True
-            chunk_size = 0x1000
+            chunk_size = self.device_bench.ota_chunk_size
             ota_answer = self.device_bench.start_ota()
             if ota_answer == 0:
                 with open(filename, "rb") as fd:

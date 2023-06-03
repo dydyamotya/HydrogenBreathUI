@@ -95,6 +95,7 @@ class MSDesktopDevice():
         self.crc = crc
         self.counter = 0
         self.get_counter = 0
+        self.ota_chunk_size = 0x1000
 
     def _send_command(self, command_num, useful):
         buffer = bytearray()
@@ -345,8 +346,9 @@ class MSDesktopDevice():
 
     @locked
     def chunk_ota(self, chunk, print=logger.info):
-        if len(chunk) < 0x2000:
-            chunk = chunk + b"\xFF" * (0x2000 - len(chunk))
+        if len(chunk) < self.ota_chunk_size:
+            chunk = chunk + b"\xFF" * (self.ota_chunk_size - len(chunk))
+        logger.debug(f"Chunk size {len(chunk)}")
         to_send = self._send_command(COMMAND_NUM.CHUNK_OTA.value, chunk)
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.CHUNK_OTA.value)
