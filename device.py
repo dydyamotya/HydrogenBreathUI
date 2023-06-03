@@ -341,8 +341,8 @@ class MSDesktopDevice():
 
     @locked
     def chunk_ota(self, chunk, print=logger.info):
-        if len(chunk) < 2000:
-            chunk = chunk + b"\xFF" * (2000 - len(chunk))
+        if len(chunk) < 0x2000:
+            chunk = chunk + b"\xFF" * (0x2000 - len(chunk))
         to_send = self._send_command(COMMAND_NUM.CHUNK_OTA.value, chunk)
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.CHUNK_OTA.value)
