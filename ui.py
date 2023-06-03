@@ -1,6 +1,6 @@
 import sys
-from PySide2 import QtWidgets, QtCore
-from PySide2.QtGui import QIntValidator
+from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6.QtGui import QIntValidator
 
 from device import MSDesktopDevice, CRCCalculator, PlaceHolderDevice
 from settings_widget import SettingsWidget
@@ -45,7 +45,7 @@ def app():
     main_window.statusBar().showMessage = show_message_wrapper
 
 
-    settings_action = QtWidgets.QAction("Settings", main_window)
+    settings_action = QtGui.QAction("Settings", main_window)
     menubar.addAction(settings_action)
     settings_action.triggered.connect(settings_widget.toggle_visible)
 

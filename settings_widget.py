@@ -1,6 +1,6 @@
 import logging
 
-from PySide2 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets, QtCore, QtGui
 from serial.tools.list_ports import comports
 import logging
 
@@ -30,14 +30,14 @@ class SettingsWidget(QtWidgets.QWidget):
         gas_stand_groupbox_layout = QtWidgets.QFormLayout(gas_stand_groupbox)
         self.gas_stand_host_lineedit = QtWidgets.QLineEdit()
         self.gas_stand_host_lineedit.setPlaceholderText("127.0.0.1")
-        self.gas_stand_host_validator = QtGui.QRegExpValidator(QtCore.QRegExp("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"))
+        self.gas_stand_host_validator = QtGui.QRegularExpressionValidator(QtCore.QRegularExpression("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"))
         self.gas_stand_host_lineedit.setValidator(self.gas_stand_host_validator)
         if self.global_application_settings.value("comm/host"):
             self.gas_stand_host_lineedit.setText(self.global_application_settings.value("comm/host"))
 
         self.gas_stand_port_lineedit = QtWidgets.QLineEdit()
         self.gas_stand_port_lineedit.setPlaceholderText("5000")
-        self.gas_stand_port_validator = QtGui.QRegExpValidator(QtCore.QRegExp("\\d{1,5}"))
+        self.gas_stand_port_validator = QtGui.QRegularExpressionValidator(QtCore.QRegularExpression("\\d{1,5}"))
         self.gas_stand_port_lineedit.setValidator(self.gas_stand_port_validator)
         if self.global_application_settings.value("comm/port"):
             self.gas_stand_port_lineedit.setText(self.global_application_settings.value("comm/port"))

@@ -1,5 +1,5 @@
 import socket
-from PySide2 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore
 import pathlib
 
 def set_gas_state(gas_state: str, host: str, port: int):
