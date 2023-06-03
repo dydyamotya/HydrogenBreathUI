@@ -506,10 +506,13 @@ class MainWidget(QtWidgets.QWidget):
                 pass
             counter = 0
             good = True
-            size_to_read = 0x1000
+            size_to_read = self.device_bench.model_chunk_size
             with open(filename, "rb") as fd:
                 values = fd.read()
-            filebinarysize = len(values)
+            if len(values) % size_to_read:
+                filebinarysize = len(values) + (size_to_read - (len(values) % size_to_read))
+            else:
+                filebinarysize = len(values)
             self.progress_bar.setRange(0, int(filebinarysize/size_to_read) + 1)
             crc = self.device_bench.crc.calc(values)
             model_post_send_answer = self.device_bench.post_model_update_init(1, filebinarysize, crc)

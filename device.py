@@ -96,6 +96,7 @@ class MSDesktopDevice():
         self.counter = 0
         self.get_counter = 0
         self.ota_chunk_size = 0x2000
+        self.model_chunk_size = 0x1000
 
     def _send_command(self, command_num, useful):
         buffer = bytearray()
@@ -453,6 +454,9 @@ class MSDesktopDevice():
     @locked
     def post_model_chunk_send(self, chunk, print=logger.info) -> int:
         # CMD_MODEL_CHUNK = 0xA5
+        if len(chunk) < self.model_chunk_size:
+            chunk = chunk + b"\xFF" * (self.model_chunk_size - len(chunk))
+        logger.debug(f"Chunk size {len(chunk)}")
         to_send = self._send_command(COMMAND_NUM.CMD_MODEL_CHUNK.value, chunk)
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.CMD_MODEL_CHUNK.value)
