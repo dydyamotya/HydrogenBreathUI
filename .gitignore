@@ -3,3 +3,5 @@
 venv/*
 programs/*
 HydrogenBreathUI.exe
+.vscode/
+__pycache__/
