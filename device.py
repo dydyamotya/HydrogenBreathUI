@@ -95,7 +95,7 @@ class MSDesktopDevice():
         self.crc = crc
         self.counter = 0
         self.get_counter = 0
-        self.ota_chunk_size = 0x1000
+        self.ota_chunk_size = 0x2000
 
     def _send_command(self, command_num, useful):
         buffer = bytearray()
