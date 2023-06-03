@@ -506,7 +506,7 @@ class MainWidget(QtWidgets.QWidget):
             with open(filename, "rb") as fd:
                 values = fd.read()
             filebinarysize = len(values)
-            crc = self.device_bench.crc(values)
+            crc = self.device_bench.crc.calc(values)
             model_post_send_answer = self.device_bench.post_model_update_init(1, filebinarysize, crc)
             size_to_read = 0x1000
             if model_post_send_answer == 0:
