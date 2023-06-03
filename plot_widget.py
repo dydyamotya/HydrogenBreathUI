@@ -28,7 +28,7 @@ class PlotWidget(pg.PlotWidget):
     def plot_heater_calibration(self, voltages, temperatures,
                                 ms_voltages, ms_temperatures,
                                 ms_voltages_recalc, ms_temperatures_recalc,
-                                voltages_cal, temperatures_cal, heater_params = None):
+                                voltages_cal, temperatures_cal, heater_params):
         self.getPlotItem().clear()
         self.getPlotItem().setLogMode(y=False)
         self.getPlotItem().setLabel("left", "Temperature", units="°C")

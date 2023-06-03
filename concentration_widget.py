@@ -2,12 +2,13 @@ from PySide6 import QtWidgets
 import pathlib
 
 class ConcentrationWidget(QtWidgets.QWidget):
-    def __init__(self, *args, settings=None,  **kwargs):
+    def __init__(self, *args, settings=None, device_proxy=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.loaded = False
         self.gas_state_to_conc_dict = {}
 
         self.settings = settings
+        self.device_proxy = device_proxy
         self._init_ui()
 
     def _init_ui(self):
@@ -113,3 +114,7 @@ class ConcentrationWidget(QtWidgets.QWidget):
 
     def toggle_visible(self):
         self.setVisible(not self.isVisible())
+
+    def set_conc_state_for_device(self, gas_sensor_state):
+        if self.device_proxy is not None:
+            self.device_proxy.set_conc_set(self.get_conc_for_state(gas_sensor_state))

@@ -18,6 +18,8 @@ def set_gas_state(gas_state: str, host: str, port: int):
             return 0
 
 class GasStandTimer(QtCore.QTimer):
+
+    next_called = QtCore.Signal(str)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.timeout.connect(self.call_next)
@@ -58,6 +60,7 @@ class GasStandTimer(QtCore.QTimer):
                 msg_box.exec_()
                 return
             self.current_state = str(gas_state)
+            self.next_called.emit(self.current_state)
             self.setInterval(interval * 1000)
             self.start()
 
