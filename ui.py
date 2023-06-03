@@ -427,12 +427,22 @@ class MainWidget(QtWidgets.QWidget):
     def upload_firmware(self):
         filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose firmware file", "./", "*")
         if filename:
+            self.device_bench.suspend_heater()
+            while True:
+                state = self.device_bench.get_state()
+                if state == 5:
+                    break
+                elif state == 4:
+                    return
+                else:
+                    sleep(1)
             counter = 0
             good = True
+            chunk_size = 0x2000
             ota_answer = self.device_bench.start_ota()
             if ota_answer == 0:
                 with open(filename, "rb") as fd:
-                    red = fd.read(2000)
+                    red = fd.read(chunk_size)
                     while good and len(red) != 0:
                         ota_answer = self.device_bench.chunk_ota(red)
                         if ota_answer == 0:
@@ -442,7 +452,7 @@ class MainWidget(QtWidgets.QWidget):
                                     break
                             counter += 1
                             self.parent().statusBar().showMessage(f"OTA progress: {counter}")
-                            red = fd.read(2000)
+                            red = fd.read(chunk_size)
                         else:
                             self.parent().statusBar().showMessage(f"OTA update failed on {counter} step with code {ota_answer}")
                             good = False

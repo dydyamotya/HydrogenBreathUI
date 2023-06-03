@@ -67,6 +67,7 @@ class COMMAND_NUM(enum.Enum):
     CMD_MODEL_UPDATE_INIT = 0xA4
     CMD_MODEL_CHUNK = 0xA5
     CMD_MODEL_FINALIZE = 0xA6
+    CMD_SUSPEND_HEATER = 0x37
 
 def form_error_bytes(num):
     return (1 << num).to_bytes(4, 'little')
@@ -321,6 +322,9 @@ class MSDesktopDevice():
         elif answer == bytearray(b"\x04"):
             print("ERROR")
             return 4
+        elif answer == bytearray(b"\x05"):
+            print("TURNED OFF")
+            return 5
         else:
             print("Strange answer")
             return answer
@@ -476,6 +480,21 @@ class MSDesktopDevice():
             print("Strange answer")
             return 2
 
+    @locked
+    def suspend_heater(self, print=logger.info) -> int:
+        # CMD_SUSPEND_HEATER  = 0x37
+        to_send = self._send_command(COMMAND_NUM.CMD_SUSPEND_HEATER.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_SUSPEND_HEATER.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return 2
 
 class PlaceHolderDevice():
     def __init__(self):
