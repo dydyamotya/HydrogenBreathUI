@@ -154,7 +154,9 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
         add_button_to_groupbox("Upload temperature cycle", self.upload_temperature_cycle)
         add_button_to_groupbox("Upload firmware", self.upload_firmware)
+        add_button_to_groupbox("Stop firmware upload", self.stop_firmware_upload)
         add_button_to_groupbox("Upload model", self.upload_model)
+        add_button_to_groupbox("Reboot device", self.reboot_device)
 
         times_layout = QtWidgets.QFormLayout()
         device_groupbox_layout.addLayout(times_layout)
@@ -289,7 +291,7 @@ class MainWidget(QtWidgets.QWidget):
         filename_par, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Get par file", dir="./")
         sensor_number, *_ = QtWidgets.QInputDialog.getInt(self, "What is the number of sensor you wanna see",
                                                           "Sensor number:", 0)
-        self.device_proxy.get_heater_calibration(filename, filename_par, sensor_number)
+        self.device_proxy.heater_calibration_signal.emit(filename, filename_par, sensor_number)
 
     def open_conces_gas_stand_file(self):
         filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Открыть файл для газового стенда", "./", "*")
@@ -321,12 +323,15 @@ class MainWidget(QtWidgets.QWidget):
                 self.settings_qt.setValue("firmware_folder", pathlib.Path(filename).parent.as_posix())
             except:
                 pass
-            self.device_proxy.upload_firmware(filename)
+            self.device_proxy.upload_firmware_signal.emit(filename)
+
+    def stop_firmware_upload(self):
+        self.device_proxy.set_break_ota()
 
     def upload_temperature_cycle(self):
         filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose calibration file", "./", "*")
         if filename:
-            self.device_proxy.upload_temperature_cycle(filename)
+            self.device_proxy.upload_temperature_cycle_signal.emit(filename)
 
     def upload_model(self):
         try:
@@ -339,4 +344,7 @@ class MainWidget(QtWidgets.QWidget):
                 self.settings_qt.setValue("model_folder", pathlib.Path(filename).parent.as_posix())
             except:
                 pass
-            self.device_proxy.upload_model(filename)
+            self.device_proxy.upload_model_signal.emit(filename)
+
+    def reboot_device(self):
+        self.device_proxy.reboot_device()

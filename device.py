@@ -68,6 +68,7 @@ class COMMAND_NUM(enum.Enum):
     GET_HAVE_RESULT = 0x22
     GET_HEATER_CAL = 0xA2
     GET_STATE = 0x30
+    CMD_REBOOT = 0x33
     START_OTA = 0xB0
     CHUNK_OTA = 0xB1
     OTA_GET_READY = 0xB2
@@ -408,6 +409,20 @@ class MSDesktopDevice():
             return answer
 
     @locked
+    def break_ota(self, print=logger.info):
+        to_send = self._send_command(COMMAND_NUM.CMD_OTA_ABORT.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_OTA_ABORT.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return answer
+    @locked
     def get_ambient_temp(self, print=logger.info):
         # CMD_GET_AMBIENT_TEMP = 0x34
         to_send = self._send_command(COMMAND_NUM.CMD_GET_AMBIENT_TEMP.value, b"")
@@ -516,6 +531,14 @@ class MSDesktopDevice():
             print("Strange answer")
             return 2
 
+    @locked
+    def reboot_device(self, print=logger.info) -> int:
+        #CMD_REBOOT = 0x33
+        to_send = self._send_command(COMMAND_NUM.CMD_REBOOT.value, b"")
+        self.ser.write(to_send)
+        return 0
+
+
 class PlaceHolderDevice():
     def __init__(self):
         class SerPlaceHolder():
@@ -525,10 +548,16 @@ class PlaceHolderDevice():
         self.ser = SerPlaceHolder()
         self.counter = 0
         self.already_was_out = False
+        self.turned_off = False
+        self.get_counter = 0
+        self.ota_chunk_size = 0x2000
+        self.model_chunk_size = 0x1000
+
     @locked
     def trigger_measurement(self, time_to_suck, print=logger.info):
         print("Started trigger measurement")
         return b"\x00"
+
 
     @locked
     def get_result(self):
@@ -562,6 +591,8 @@ class PlaceHolderDevice():
             return b"\x01"
     @locked
     def get_state(self, print=logger.info):
+        if self.turned_off:
+            return 5
         if self.counter == 0:
             print("IDLE")
             self.counter += 1
@@ -588,7 +619,7 @@ class PlaceHolderDevice():
         else:
             print("Strange answer")
             self.counter += 1
-            return 5
+            return 4
 
     @locked
     def get_heater_calibration(self, print=logger.info):
@@ -603,6 +634,32 @@ class PlaceHolderDevice():
     def get_ambient_temp(self, print=logger.info):
         # CMD_GET_AMBIENT_TEMP = 0x34
         return 123.1
+
+    @locked
+    def suspend_heater(self):
+        self.turned_off = True
+        pass
+
+    @locked
+    def start_ota(self):
+        return 0
+
+    @locked
+    def chunk_ota(self, chunk):
+        sleep(0.01)
+        return 0
+
+    @locked
+    def check_ota(self):
+        return 0
+
+    @locked
+    def finalize_ota(self):
+        return 0
+
+    @locked
+    def break_ota(self):
+        return 0
 
 
 class MSDesktopQtProxy(QtCore.QObject):
@@ -628,11 +685,20 @@ class MSDesktopQtProxy(QtCore.QObject):
     conc_widget_signal = Signal(str)
     data_logger_signal = Signal(np.ndarray, float, int, np.ndarray, float, float, float, float)
 
+    # Function signals to call it from other threads
+
+    heater_calibration_signal = Signal(str, str, int)
+    upload_firmware_signal = Signal(str)
+    upload_temperature_cycle_signal = Signal(str)
+    upload_model_signal = Signal(str)
+
 
 
     def __init__(self):
         super().__init__()
         self.device: typing.Optional[typing.Union[MSDesktopDevice, PlaceHolderDevice]] = None
+
+        self.busy = False
 
         self.gas_already_sent = False
         self.already_waited = 0
@@ -645,6 +711,14 @@ class MSDesktopQtProxy(QtCore.QObject):
 
         self.need_to_trigger_measurement = False
         self.need_to_wait_for_scientist = False
+
+        self.send_ota_break = False
+
+        self.heater_calibration_signal.connect(self.get_heater_calibration)
+        self.upload_firmware_signal.connect(self.upload_firmware)
+        self.upload_temperature_cycle_signal.connect(self.upload_temperature_cycle)
+        self.upload_model_signal.connect(self.upload_model)
+
 
     @Slot(str)
     def init_new_device(self, port):
@@ -713,6 +787,10 @@ class MSDesktopQtProxy(QtCore.QObject):
                     self.gas_iterator_state = next(self.gas_iterator)
 
     @Slot()
+    def set_break_ota(self):
+        self.send_ota_break = True
+
+    @Slot()
     def next_gas_iterator(self):
         self.gas_iterator_state = next(self.gas_iterator)
 
@@ -726,6 +804,11 @@ class MSDesktopQtProxy(QtCore.QObject):
 
     @Slot()
     def get_all_results(self):
+        if self.busy:
+            self.messagebox.emit("Связь с устройством потеряна",
+                                 "Ну или прошла рассинхронизация, черт его знает. Скорее первое.")
+            self.stop_main_cycle_signal.emit()
+            return
         if not self._pre_device_command():
             state = self.device.get_state()
             t_ambient = self.device.get_ambient_temp()
@@ -831,96 +914,121 @@ class MSDesktopQtProxy(QtCore.QObject):
                                               ms_voltages_recalc, ms_temperatures,
                                               voltages_cal, temperatures, heater_params)
 
+    @Slot(str)
     def upload_firmware(self, filename):
-        self.device.suspend_heater()
-        while True:
-            state = self.device.get_state()
-            if state == 5:
-                break
-            elif state == 4:
-                return
-            else:
-                sleep(1)
-        counter = 0
-        good = True
-        chunk_size = self.device.ota_chunk_size
-        filesize = os.path.getsize(filename)
-        steps = math.ceil(filesize / chunk_size)
-        self.progressbar_range.emit(0, steps)
-        ota_answer = self.device.start_ota()
-        if ota_answer == 0:
-            with open(filename, "rb") as fd:
-                red = fd.read(chunk_size)
-                while good and len(red) != 0:
-                    ota_answer = self.device.chunk_ota(red)
-                    if ota_answer == 0:
-                        while True:
-                            sleep(0.5)
-                            if self.device.check_ota() == 0:
-                                break
-                        counter += 1
-                        self.progressbar_text.emit("OTA update")
-                        self.progressbar.emit(counter)
-                        red = fd.read(chunk_size)
-                    else:
-                        self.messagebox.emit(f"OTA update failed on {counter} step with code {ota_answer}", "")
-                        good = False
-            if good:
-                if self.device.finalize_ota() == 0:
-                    self.progressbar.emit(steps)
-                    self.message.emit("Successful OTA update")
+        if not self._pre_device_command():
+            self.busy = True
+            self.message.emit("OTA update started")
+            self.device.suspend_heater()
+            while True:
+                state = self.device.get_state()
+                if state == 5:
+                    break
+                elif state == 4:
+                    self.messagebox.emit("Strange answer about device state", "")
+                    self.busy = False
+                    return
                 else:
-                    self.messagebox.emit("Failed finalize OTA update", "")
-        else:
-            self.messagebox.emit(f"Cant start OTA with code {ota_answer}", "")
+                    sleep(1)
+            counter = 0
+            good = True
+            chunk_size = self.device.ota_chunk_size
+            filesize = os.path.getsize(filename)
+            steps = math.ceil(filesize / chunk_size)
+            self.progressbar_range.emit(0, steps)
+            ota_answer = self.device.start_ota()
+            if ota_answer == 0:
+                with open(filename, "rb") as fd:
+                    red = fd.read(chunk_size)
+                    while not self.send_ota_break and good and len(red) != 0:
+                        ota_answer = self.device.chunk_ota(red)
+                        if ota_answer == 0:
+                            while True:
+                                sleep(0.05)
+                                if self.device.check_ota() == 0:
+                                    break
+                            counter += 1
+                            self.progressbar_text.emit("OTA update")
+                            self.progressbar.emit(counter)
+                            red = fd.read(chunk_size)
+                        else:
+                            self.messagebox.emit(f"OTA update failed on {counter} step with code {ota_answer}", "")
+                            good = False
+                    if self.send_ota_break:
+                        self.device.break_ota()
+                        self.send_ota_break = False
+                        self.busy = False
+                        self.progressbar_text.emit("OTA update stopped")
+                        return
+                if good:
+                    if self.device.finalize_ota() == 0:
+                        self.progressbar.emit(steps)
+                        self.message.emit("Successful OTA update")
+                    else:
+                        self.messagebox.emit("Failed finalize OTA update", "")
+            else:
+                self.messagebox.emit(f"Cant start OTA with code {ota_answer}", "")
+            self.busy = False
 
     @Slot(str)
     def upload_temperature_cycle(self, filename):
-        with open(filename, "r") as fd:
-            values = tuple(map(lambda x: float(x.strip()), fd.readlines()))
-            if len(values) != 301:
-                self.message.emit("Calibration not loaded, array size not equal to 301 element")
-            answer = self.device.set_cycle(values)
-            if answer[0] == 0:
-                self.message.emit("Calibration loaded")
-            else:
-                self.message.emit("Calibration not loaded, something with device connection")
+        if not self._pre_device_command():
+            self.busy = True
+            with open(filename, "r") as fd:
+                values = tuple(map(lambda x: float(x.strip()), fd.readlines()))
+                if len(values) != 301:
+                    self.message.emit("Calibration not loaded, array size not equal to 301 element")
+                answer = self.device.set_cycle(values)
+                if answer[0] == 0:
+                    self.message.emit("Calibration loaded")
+                else:
+                    self.message.emit("Calibration not loaded, something with device connection")
+            self.busy = False
 
     @Slot(str)
     def upload_model(self, filename):
-        counter = 0
-        good = True
-        size_to_read = self.device.model_chunk_size
-        with open(filename, "rb") as fd:
-            values = fd.read()
-        if len(values) % size_to_read:
-            filebinarysize = len(values) + (size_to_read - (len(values) % size_to_read))
-        else:
-            filebinarysize = len(values)
-        values = values + b"\xFF" * (filebinarysize - len(values))
-        self.progressbar_range.emit(0, int(filebinarysize / size_to_read) + 1)
-        self.progressbar_text.emit("Model update")
-        crc = self.device.crc.calc(values)
-        model_post_send_answer = self.device.post_model_update_init(1, filebinarysize, crc)
-        if model_post_send_answer == 0:
+        if not self._pre_device_command():
+            counter = 0
+            good = True
+            self.busy = True
+            size_to_read = self.device.model_chunk_size
             with open(filename, "rb") as fd:
-                red = fd.read(size_to_read)
-                while good and len(red) != 0:
-                    model_update_answer = self.device.post_model_chunk_send(red)
-                    if model_update_answer == 0:
-                        counter += 1
-                        self.progressbar.emit(counter)
-                        red = fd.read(size_to_read)
+                values = fd.read()
+            if len(values) % size_to_read:
+                filebinarysize = len(values) + (size_to_read - (len(values) % size_to_read))
+            else:
+                filebinarysize = len(values)
+            values = values + b"\xFF" * (filebinarysize - len(values))
+            self.progressbar_range.emit(0, int(filebinarysize / size_to_read) + 1)
+            self.progressbar_text.emit("Model update")
+            crc = self.device.crc.calc(values)
+            model_post_send_answer = self.device.post_model_update_init(1, filebinarysize, crc)
+            if model_post_send_answer == 0:
+                with open(filename, "rb") as fd:
+                    red = fd.read(size_to_read)
+                    while good and len(red) != 0:
+                        model_update_answer = self.device.post_model_chunk_send(red)
+                        if model_update_answer == 0:
+                            counter += 1
+                            self.progressbar.emit(counter)
+                            red = fd.read(size_to_read)
+                        else:
+                            self.messagebox.emit(
+                                f"Model update failed on {counter} step with code {model_update_answer}", "")
+                            good = False
+                if good:
+                    if self.device.post_model_finalize() == 0:
+                        self.progressbar.emit(int(filebinarysize / size_to_read) + 1)
+                        self.message.emit("Successful model update")
                     else:
-                        self.messagebox.emit(
-                            f"Model update failed on {counter} step with code {model_update_answer}", "")
-                        good = False
-            if good:
-                if self.device.post_model_finalize() == 0:
-                    self.progressbar.emit(int(filebinarysize / size_to_read) + 1)
-                    self.message.emit("Successful model update")
-                else:
-                    self.messagebox.emit("Failed finalize model update", "")
-        else:
-            self.messagebox.emit(f"Cant start model update with code {model_post_send_answer}", '')
+                        self.messagebox.emit("Failed finalize model update", "")
+            else:
+                self.messagebox.emit(f"Cant start model update with code {model_post_send_answer}", '')
+            self.busy = False
+
+    @Slot()
+    def reboot_device(self):
+        if not self._pre_device_command():
+            self.device.reboot_device()
+            self.message.emit("Device rebooted")
 
