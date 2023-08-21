@@ -332,13 +332,11 @@ class MSDesktopDevice():
         answer = self._get_answer(COMMAND_NUM.CMD_SET_HEATER_CAL.value)
         if answer == bytearray(b"\x00"):
             print("OK")
-            return 0
         elif answer == bytearray(b"\x01"):
             print("ERROR")
-            return 1
         else:
             print("Strange answer")
-            return answer
+        return answer
 
     @locked
     def get_state(self, print=logger.info):
