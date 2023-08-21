@@ -233,7 +233,7 @@ class MSDesktopDevice():
     @locked
     def set_heater_params(self, parameters, print=logger.info):
         # CMD_SET_HEATER_PARAMS = 0x05
-        heater_params = struct.pack("<fffffffffqi", *parameters)
+        payload = struct.pack("<fffffffffqi", *parameters)
         to_send = self._send_command(COMMAND_NUM.CMD_SET_HEATER_PARAMS.value, payload)
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.CMD_SET_HEATER_PARAMS.value)
