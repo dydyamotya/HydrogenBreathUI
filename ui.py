@@ -157,7 +157,10 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Upload firmware", self.upload_firmware)
         add_button_to_groupbox("Stop firmware upload", self.stop_firmware_upload)
         add_button_to_groupbox("Upload model", self.upload_model)
+        add_button_to_groupbox("Save variant", self.save_variant)
+        add_button_to_groupbox("Save heater params", self.save_heater_params)
         add_button_to_groupbox("Reboot device", self.reboot_device)
+
 
         times_layout = QtWidgets.QFormLayout()
         device_groupbox_layout.addLayout(times_layout)
@@ -360,6 +363,11 @@ class MainWidget(QtWidgets.QWidget):
                 pass
             self.device_proxy.upload_calibration_signal.emit(filename)
 
+    def save_variant(self):
+        self.device_proxy.save_variant()
+
+    def save_heater_params(self):
+        self.device_proxy.save_heater_params()
 
     def reboot_device(self):
         self.device_proxy.reboot_device()

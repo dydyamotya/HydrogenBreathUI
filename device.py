@@ -82,6 +82,8 @@ class COMMAND_NUM(enum.Enum):
     CMD_MODEL_CHUNK = 0xA5
     CMD_MODEL_FINALIZE = 0xA6
     CMD_SUSPEND_HEATER = 0x37
+    CMD_SAVE_HEATER_CAL = 0x40
+    CMD_SAVE_NVS_VARIANT = 0x41
 
 def form_error_bytes(num):
     return (1 << num).to_bytes(4, 'little')
@@ -557,6 +559,37 @@ class MSDesktopDevice():
         self.ser.write(to_send)
         return 0
 
+    @locked
+    def save_variant(self, print=logger.info) -> int:
+        # CMD_SAVE_NVS_VARIANT = 0x41
+        to_send = self._send_command(COMMAND_NUM.CMD_SAVE_NVS_VARIANT.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_SAVE_NVS_VARIANT.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return 2
+
+    @locked
+    def save_heater_params(self, print=logger.info) -> int:
+        # CMD_SAVE_HEATER_CAL = 0x40
+        to_send = self._send_command(COMMAND_NUM.CMD_SAVE_HEATER_CAL.value, b"")
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.CMD_SAVE_HEATER_CAL.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return 2
 
 class PlaceHolderDevice():
     def __init__(self):
@@ -1076,4 +1109,25 @@ class MSDesktopQtProxy(QtCore.QObject):
                     self.message.emit("Calibration not loaded, something with device connection")
             self.busy = False
 
+    @Slot()
+    def save_variant(self):
+        if not self._pre_device_command():
+            self.busy = True
+            answer = self.device.save_variant()
+            if answer[0] == 0:
+                self.message.emit("NVS variant saved")
+            else:
+                self.message.emit(f"NVS variant not saved, error code {answer[0]}")
+            self.busy = False
+
+    @Slot()
+    def save_heater_params(self):
+        if not self._pre_device_command():
+            self.busy = True
+            answer = self.device.save_heater_params()
+            if answer[0] == 0:
+                self.message.emit("Heater params saved")
+            else:
+                self.message.emit(f"Heater params not saved, error code {answer[0]}")
+            self.busy = False
 
