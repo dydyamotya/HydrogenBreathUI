@@ -37,10 +37,10 @@ class PlotWidget(pg.PlotWidget):
         data2 = np.hstack([ms_voltages, ms_temperatures]).reshape((2, -1)).T
         data3 = np.hstack([ms_voltages_recalc, ms_temperatures_recalc]).reshape((2, -1)).T
         data4 = np.hstack([voltages_cal, temperatures_cal]).reshape((2, -1)).T
-        np.savetxt(pathlib.Path.cwd() / "pasha_version.csv", data)
-        np.savetxt(pathlib.Path.cwd() / "ms_version.csv", data2)
-        np.savetxt(pathlib.Path.cwd() / "ms_version_recalc.csv", data3)
-        np.savetxt(pathlib.Path.cwd() / "pasha_cal_version.csv", data4)
+        np.savetxt(pathlib.Path.cwd() / "device_version{}.csv".format(datetime.datetime.now().isoformat().replace(":", ".")), data)
+        np.savetxt(pathlib.Path.cwd() / "ms_version{}.csv".format(datetime.datetime.now().isoformat().replace(":", ".")), data2)
+        np.savetxt(pathlib.Path.cwd() / "ms_version_recalc{}.csv".format(datetime.datetime.now().isoformat().replace(":", ".")), data3)
+        np.savetxt(pathlib.Path.cwd() / "device_cal_version{}.csv".format(datetime.datetime.now().isoformat().replace(":", ".")), data4)
         line1 = self.plot(x=voltages, y=temperatures, pen=pg.mkPen("green"))
         line2 = self.plot(x=ms_voltages, y=ms_temperatures, pen=pg.mkPen("blue"))
         line3 = self.plot(x=ms_voltages_recalc, y=ms_temperatures_recalc, pen=pg.mkPen("red"))
