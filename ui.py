@@ -2,7 +2,7 @@ import sys
 from PySide6 import QtWidgets, QtCore, QtGui
 from PySide6.QtGui import QIntValidator
 
-from device import MSDesktopDevice, MSDesktopQtProxy
+from device_proxy import MSDesktopQtProxy
 from settings_widget import SettingsWidget
 from plot_widget import PlotWidget
 from logger import DataLogger
@@ -21,6 +21,10 @@ def app():
 
     device_proxy_object = MSDesktopQtProxy()
     device_proxy_thread = QtCore.QThread()
+
+    app.aboutToQuit.connect(device_proxy_thread.quit)
+
+
     device_proxy_object.moveToThread(device_proxy_thread)
     device_proxy_thread.start()
 
@@ -266,6 +270,8 @@ class MainWidget(QtWidgets.QWidget):
         else:
             self.data_logger = DataLogger(self.data_logger_path)
             self.device_proxy.initialize_gas_iterator(self.times_repeat_lineedit.text(), self.conc_lineedit.text())
+            self.device_proxy.set_before_trigger_time(self.before_trigger_time_lineedit.text())
+            self.device_proxy.set_trigger_time(self.trigger_time_lineedit.text())
             self.timer.start()
 
 
