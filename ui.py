@@ -58,7 +58,7 @@ class MainWidget(QtWidgets.QWidget):
         super().__init__(*args, **kwargs)
         self.setWindowTitle("HydrogenBreathUI")
 
-        self.device_proxy = device_proxy
+        self.device_proxy: MSDesktopQtProxy = device_proxy
         self.device_proxy.message.connect(self.show_message_from_device)
         self.device_proxy.messagebox.connect(self.show_message_box_from_device)
         self.device_proxy.send_to_gas_stand.connect(self.send_signal_to_gas_stand)
@@ -152,6 +152,7 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Start", self.start_timer)
         add_button_to_groupbox("Stop", self.stop_timer)
         add_button_to_groupbox("Get cal", self.get_heater_calibration)
+        add_button_to_groupbox("Upload calibration", self.upload_calibration)
         add_button_to_groupbox("Upload temperature cycle", self.upload_temperature_cycle)
         add_button_to_groupbox("Upload firmware", self.upload_firmware)
         add_button_to_groupbox("Stop firmware upload", self.stop_firmware_upload)
@@ -345,6 +346,20 @@ class MainWidget(QtWidgets.QWidget):
             except:
                 pass
             self.device_proxy.upload_model_signal.emit(filename)
+
+    def upload_calibration(self):
+        try:
+            folder = self.settings_qt.value("calibration_folder", "./")
+        except:
+            folder = './'
+        filename, *_ = QtWidgets.QFileDialog.getOpenFileName(self, "Choose calibration file", folder, "*")
+        if filename:
+            try:
+                self.settings_qt.setValue("calibration_folder", pathlib.Path(filename).parent.as_posix())
+            except:
+                pass
+            self.device_proxy.upload_calibration_signal.emit(filename)
+
 
     def reboot_device(self):
         self.device_proxy.reboot_device()

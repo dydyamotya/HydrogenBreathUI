@@ -22,7 +22,7 @@ from collections import namedtuple
 
 logger = logging.getLogger(__name__)
 
-HeaterParamsTuple = namedtuple("HeaterParamsTuple", "tempco, rt_resistance, rt_temp, r_corr, cal_curve_ambient, gain, offset, cal_calib_interval, cal_calibration_enable")
+HeaterParamsTuple = namedtuple("HeaterParamsTuple", "tempco, rt_resistance, rt_temp, r_corr, cal_curve_ambient, gain, offset, cal_curve_approx_a, cal_curve_approx_b, cal_calib_interval, cal_calibration_enable")
 HeaterCalTransformTuple = namedtuple("HeaterCalTransformTuple", "k, b")
 class CRCCalculator():
     def __init__(self):
@@ -58,7 +58,7 @@ class COMMAND_NUM(enum.Enum):
     TRIGGER_MEASUREMENT = 2
     GET = 3
     STATUS = 4
-    SET_HEATER = 5
+    CMD_SET_HEATER_PARAMS = 0x05
     SET_MEAS = 6
     SET_CYCLE = 7
     HAVE_DATA = 8
@@ -67,6 +67,7 @@ class COMMAND_NUM(enum.Enum):
     GET_RESULT = 0x21
     GET_HAVE_RESULT = 0x22
     GET_HEATER_CAL = 0xA2
+    CMD_SET_HEATER_CAL = 0xA3
     GET_STATE = 0x30
     CMD_REBOOT = 0x33
     START_OTA = 0xB0
@@ -226,13 +227,14 @@ class MSDesktopDevice():
             decoded = "Strange answer"
         return answer, decoded
 
+
     @locked
-    def set_heater(self, *parameters, print=logger.info):
-        """parameters: [0] – alpha, [1] – R0, [2] - Rn"""
-        useful = struct.pack("<" + "f" * len(parameters), *parameters)
-        to_send = self._send_command(COMMAND_NUM.SET_HEATER.value, useful)
+    def set_heater_params(self, parameters, print=logger.info):
+        # CMD_SET_HEATER_PARAMS = 0x05
+        heater_params = struct.pack("<fffffffffqi", *parameters)
+        to_send = self._send_command(COMMAND_NUM.CMD_SET_HEATER_PARAMS.value, payload)
         self.ser.write(to_send)
-        answer = self._get_answer(COMMAND_NUM.SET_HEATER.value)
+        answer = self._get_answer(COMMAND_NUM.CMD_SET_HEATER_PARAMS.value)
         if answer == bytearray(b"\x00"):
             print("Status OK")
         elif answer == bytearray(b"\x01"):
@@ -319,6 +321,23 @@ class MSDesktopDevice():
             return voltages, temperatures
         except:
             return answer
+
+    @locked
+    def set_heater_calibration(self, values):
+        payload = struct.pack("<" + "f" * len(values), *values)
+        to_send = self._send_command(COMMAND_NUM.SET_HEATER_CAL.value, payload)
+        self.ser.write(to_send)
+        answer = self._get_answer(COMMAND_NUM.SET_HEATER_CAL.value)
+        if answer == bytearray(b"\x00"):
+            print("OK")
+            return 0
+        elif answer == bytearray(b"\x01"):
+            print("ERROR")
+            return 1
+        else:
+            print("Strange answer")
+            return answer
+
     @locked
     def get_state(self, print=logger.info):
         to_send = self._send_command(COMMAND_NUM.GET_STATE.value, b"")
@@ -442,7 +461,7 @@ class MSDesktopDevice():
         self.ser.write(to_send)
         answer = self._get_answer(COMMAND_NUM.CMD_GET_HEATER_PARAMS.value)
         try:
-            heater_params = HeaterParamsTuple._make(struct.unpack("<fffffffqi", answer))
+            heater_params = HeaterParamsTuple._make(struct.unpack("<fffffffffqi", answer))
             print(repr(heater_params))
             return heater_params
         except Exception as e:
@@ -629,7 +648,7 @@ class PlaceHolderDevice():
         return HeaterCalTransformTuple(100, 0.1)
 
     def get_heater_params(self, print=logger.info):
-        return HeaterParamsTuple(120, 10, 31, 14, 12, 1242, 12, 12, True)
+        return HeaterParamsTuple(120, 10, 31, 14, 12, 1242, 12, 1.237, 121.1412, 12, True)
     @locked
     def get_ambient_temp(self, print=logger.info):
         # CMD_GET_AMBIENT_TEMP = 0x34
@@ -691,6 +710,7 @@ class MSDesktopQtProxy(QtCore.QObject):
     upload_firmware_signal = Signal(str)
     upload_temperature_cycle_signal = Signal(str)
     upload_model_signal = Signal(str)
+    upload_calibration_signal = Signal(str)
 
 
 
@@ -718,6 +738,7 @@ class MSDesktopQtProxy(QtCore.QObject):
         self.upload_firmware_signal.connect(self.upload_firmware)
         self.upload_temperature_cycle_signal.connect(self.upload_temperature_cycle)
         self.upload_model_signal.connect(self.upload_model)
+        self.upload_calibration_signal.connect(self.upload_calibration)
 
 
     @Slot(str)
@@ -977,10 +998,10 @@ class MSDesktopQtProxy(QtCore.QObject):
             with open(filename, "r") as fd:
                 values = tuple(map(lambda x: float(x.strip()), fd.readlines()))
                 if len(values) != 301:
-                    self.message.emit("Calibration not loaded, array size not equal to 301 element")
+                    self.message.emit("Temperature cycle not loaded, array size not equal to 301 element")
                 answer = self.device.set_cycle(values)
                 if answer[0] == 0:
-                    self.message.emit("Calibration loaded")
+                    self.message.emit("Temperature cycle loaded")
                 else:
                     self.message.emit("Calibration not loaded, something with device connection")
             self.busy = False
@@ -1031,4 +1052,28 @@ class MSDesktopQtProxy(QtCore.QObject):
         if not self._pre_device_command():
             self.device.reboot_device()
             self.message.emit("Device rebooted")
+
+    @Slot()
+    def upload_calibration(self, filename):
+        if not self._pre_device_command():
+            self.busy = True
+            with open(filename, "r") as fd:
+                values = tuple(map(lambda x: float(x.strip()), fd.readlines()))
+                values_to_heater_params, calibration_curve = values[:11], values[11:]
+                
+                answer = self.device.set_heater_params(values_to_heater_params)
+                if answer[0] == 0:
+                    self.message.emit("Heater params loaded")
+                else:
+                    self.message.emit(f"Heater params not loaded, error code {answer[0]}")
+
+                if len(calibration_curve) != DOTS_IN_PASHA_CALIBRATION:
+                    self.message.emit("Calibration not loaded, array size not equal to 410 element")
+                answer = self.device.set_heater_calibration(calibration_curve)
+                if answer[0] == 0:
+                    self.message.emit("Calibration loaded")
+                else:
+                    self.message.emit("Calibration not loaded, something with device connection")
+            self.busy = False
+
 
