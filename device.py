@@ -1093,6 +1093,10 @@ class MSDesktopQtProxy(QtCore.QObject):
             with open(filename, "r") as fd:
                 values = tuple(map(lambda x: float(x.strip()), fd.readlines()))
                 values_to_heater_params, calibration_curve = values[:11], values[11:]
+
+                values_to_heater_params = list(values_to_heater_params)
+                values_to_heater_params[10] = int(values_to_heater_params[10])
+                values_to_heater_params[9] = int(values_to_heater_params[9])
                 
                 answer = self.device.set_heater_params(values_to_heater_params)
                 if answer[0] == 0:
