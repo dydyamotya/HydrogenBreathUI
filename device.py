@@ -602,11 +602,10 @@ class PlaceHolderDevice():
 
     @locked
     def get_have_data(self, print=logger.info):
-        print("There is no data")
         if self.already_was_out:
-            return b"\x00"
+            return b"\x00", "There is data"
         else:
-            return b"\x01"
+            return b"\x01", "There is no data"
 
     @locked
     def get_have_result(self):

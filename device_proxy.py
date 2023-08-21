@@ -198,7 +198,6 @@ class MSDesktopQtProxy(QtCore.QObject):
             state = self.device.get_state()
             t_ambient = self.device.get_ambient_temp()
             self.change_t_ambient.emit(f"T_amb: {t_ambient:2.2f} °K")
-            logger.debug(f"{self.before_trigger_time}, {self.trigger_time}")
             self.message.emit(f"Status: {state}, gas_already_sent: {self.gas_already_sent}, already_waited: {self.already_waited}, state: {self.gas_iterator_state}, counter: {self.gas_iterator_counter}")
             if self.need_to_trigger_measurement:
                 if state == 0: # idle
@@ -229,7 +228,11 @@ class MSDesktopQtProxy(QtCore.QObject):
                         self.gas_already_sent = True
                 elif state == 3: # purging
                     self.gas_already_sent = False
-                    if self.device.get_have_data()[0] == 0 and self.device.get_have_result()[0] == 0:
+                    get_have_data_answer, get_have_data_decoded = self.device.get_have_data()
+                    logger.debug(get_have_data_decoded)
+                    get_have_result_answer =  self.device.get_have_result()
+                    logger.debug(f"{get_have_result_answer}")
+                    if get_have_data_answer[0] == 0 and get_have_result_answer[0] == 0:
                         times, temperatures, resistances = self.device.get_cycle()
                         self.plot_signal.emit(times[1:], resistances[1:])
                         h2conc, *_ = self.device.get_result()
