@@ -327,9 +327,9 @@ class MSDesktopDevice():
     @locked
     def set_heater_calibration(self, values):
         payload = struct.pack("<" + "f" * len(values), *values)
-        to_send = self._send_command(COMMAND_NUM.SET_HEATER_CAL.value, payload)
+        to_send = self._send_command(COMMAND_NUM.CMD_SET_HEATER_CAL.value, payload)
         self.ser.write(to_send)
-        answer = self._get_answer(COMMAND_NUM.SET_HEATER_CAL.value)
+        answer = self._get_answer(COMMAND_NUM.CMD_SET_HEATER_CAL.value)
         if answer == bytearray(b"\x00"):
             print("OK")
             return 0
