@@ -88,6 +88,8 @@ class MainWidget(QtWidgets.QWidget):
         self.data_logger_path = pathlib.Path.cwd()
         self.data_logger = DataLogger(self.data_logger_path)
 
+        self.device_proxy.data_logger_signal.connect(self.data_logger_save_callback)
+
         main_layout = QtWidgets.QVBoxLayout(self)
 
         gas_stand_groupbox = QtWidgets.QGroupBox("Gas Stand")
