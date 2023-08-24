@@ -463,7 +463,7 @@ class MSDesktopDevice():
             return HeaterCalTransformTuple(0, 0)
 
     @locked
-    def post_model_update_init(self, version, length, crc, print=logger.info) -> int:
+    def post_model_update_init(self, version: int, length, crc, print=logger.info) -> int:
         # CMD_MODEL_UPDATE_INIT = 0xA4
         payload = struct.pack("<BLL", version, length, crc)
         to_send = self._send_command(COMMAND_NUM.CMD_MODEL_UPDATE_INIT.value, payload)

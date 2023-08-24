@@ -51,7 +51,7 @@ class MSDesktopQtProxy(QtCore.QObject):
     heater_calibration_signal = Signal(str, str, int)
     upload_firmware_signal = Signal(str)
     upload_temperature_cycle_signal = Signal(str)
-    upload_model_signal = Signal(str, str)
+    upload_model_signal = Signal(str, int)
     upload_calibration_signal = Signal(str)
 
 
