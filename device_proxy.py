@@ -51,7 +51,7 @@ class MSDesktopQtProxy(QtCore.QObject):
     heater_calibration_signal = Signal(str, str, int)
     upload_firmware_signal = Signal(str)
     upload_temperature_cycle_signal = Signal(str)
-    upload_model_signal = Signal(str)
+    upload_model_signal = Signal(str, str)
     upload_calibration_signal = Signal(str)
 
 
@@ -374,7 +374,7 @@ class MSDesktopQtProxy(QtCore.QObject):
             self.busy = False
 
     @Slot(str)
-    def upload_model(self, filename):
+    def upload_model(self, filename: str, version: int):
         if not self._pre_device_command():
             counter = 0
             good = True
@@ -390,7 +390,7 @@ class MSDesktopQtProxy(QtCore.QObject):
             self.progressbar_range.emit(0, int(filebinarysize / size_to_read) + 1)
             self.progressbar_text.emit("Model update")
             crc = self.device.crc.calc(values)
-            model_post_send_answer = self.device.post_model_update_init(1, filebinarysize, crc)
+            model_post_send_answer = self.device.post_model_update_init(version, filebinarysize, crc)
             if model_post_send_answer == 0:
                 with open(filename, "rb") as fd:
                     red = fd.read(size_to_read)

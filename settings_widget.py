@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class SettingsWidget(QtWidgets.QWidget):
     def __init__(self, parent, global_application_settings: QtCore.QSettings):
-        super().__init__(parent, f=QtCore.Qt.Tool)
+        super().__init__(parent, f=QtCore.Qt.WindowType.Tool)
         self.setWindowTitle("Settings")
         self.global_application_settings = global_application_settings
 
@@ -33,14 +33,14 @@ class SettingsWidget(QtWidgets.QWidget):
         self.gas_stand_host_validator = QtGui.QRegularExpressionValidator(QtCore.QRegularExpression("\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"))
         self.gas_stand_host_lineedit.setValidator(self.gas_stand_host_validator)
         if self.global_application_settings.value("comm/host"):
-            self.gas_stand_host_lineedit.setText(self.global_application_settings.value("comm/host"))
+            self.gas_stand_host_lineedit.setText(str(self.global_application_settings.value("comm/host")))
 
         self.gas_stand_port_lineedit = QtWidgets.QLineEdit()
         self.gas_stand_port_lineedit.setPlaceholderText("5000")
         self.gas_stand_port_validator = QtGui.QRegularExpressionValidator(QtCore.QRegularExpression("\\d{1,5}"))
         self.gas_stand_port_lineedit.setValidator(self.gas_stand_port_validator)
         if self.global_application_settings.value("comm/port"):
-            self.gas_stand_port_lineedit.setText(self.global_application_settings.value("comm/port"))
+            self.gas_stand_port_lineedit.setText(str(self.global_application_settings.value("comm/port")))
 
         gas_stand_groupbox_layout.addRow("Host", self.gas_stand_host_lineedit)
         gas_stand_groupbox_layout.addRow("Port", self.gas_stand_port_lineedit)

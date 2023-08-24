@@ -356,7 +356,19 @@ class MainWidget(QtWidgets.QWidget):
                 self.settings_qt.setValue("model_folder", pathlib.Path(filename).parent.as_posix())
             except:
                 pass
-            self.device_proxy.upload_model_signal.emit(filename)
+            
+            input_dialog = QtWidgets.QInputDialog(self)
+            version, *_ = input_dialog.getText(self, "Get model version in int8", "Version")
+            try:
+                version = int(version)
+            except:
+                msg_box = QtWidgets.QMessageBox()
+                msg_box.setText("Введите версию в виде числа")
+                msg_box.exec_()
+                return 
+            else:
+                print(version)
+                self.device_proxy.upload_model_signal.emit(filename, version)
 
     def upload_calibration(self):
         try:

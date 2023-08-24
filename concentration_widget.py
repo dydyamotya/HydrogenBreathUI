@@ -27,7 +27,6 @@ class ConcentrationWidget(QtWidgets.QWidget):
         buttons_layout.addWidget(apply_button)
         apply_button.clicked.connect(self.apply_callback)
 
-
         cylinder_conc = self.settings.value("cylinder_conc") if self.settings is not None else ""
         common_flow = self.settings.value("common_flow") if self.settings is not None else ""
 
@@ -42,8 +41,6 @@ class ConcentrationWidget(QtWidgets.QWidget):
         self.table_widget = QtWidgets.QTableWidget(self)
         self.reset_table_widget()
         main_layout.addWidget(self.table_widget)
-
-
 
     def reset_table_widget(self):
         self.table_widget.clear()
@@ -94,7 +91,6 @@ class ConcentrationWidget(QtWidgets.QWidget):
                     conc_item = QtWidgets.QTableWidgetItem("-1")
                 self.table_widget.setItem(idx, 1, conc_item)
             self.calculate_gas_state_to_conc_dict_from_table_data()
-
 
     def calculate_gas_state_to_conc_dict_from_table_data(self):
         self.gas_state_to_conc_dict = {self.table_widget.item(idx, 0).text(): self.table_widget.item(idx, 1).text() for idx in range(self.table_widget.rowCount())}

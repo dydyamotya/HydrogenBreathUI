@@ -13,29 +13,36 @@ if typing.TYPE_CHECKING:
 class PlotWidget(pg.PlotWidget):
     def __init__(self):
         super().__init__()
-        self.getPlotItem().showGrid(x=True, y=True)
-        self.legenditem = pg.LegendItem()
-        self.legenditem.setParentItem(self.getPlotItem())
+        plot_item = self.getPlotItem()
+        if plot_item is not None:
+            plot_item.showGrid(x=True, y=True)
+            self.legenditem = pg.LegendItem()
+            self.legenditem.setParentItem(plot_item)
 
 
         self.legenditem.setVisible(False)
 
     def plot_answer(self, times, resistances):
-        self.getPlotItem().clear()
-        self.legenditem.setVisible(False)
-        self.getPlotItem().setLogMode(y=True)
-        self.getPlotItem().setLabel("left", "Resistance", units="Ω")
-        self.getPlotItem().setLabel("bottom", "Time", units="ds")
-        self.plot(x=times, y=resistances)
+        plot_item = self.getPlotItem()
+        if plot_item is not None:
+            plot_item.clear()
+            self.legenditem.setVisible(False)
+            plot_item.setLogMode(y=True)
+            plot_item.setLabel("left", "Resistance", units="Ω")
+            plot_item.setLabel("bottom", "Time", units="ds")
+            self.plot(x=times, y=resistances)
 
     def plot_heater_calibration(self, voltages, temperatures,
                                 ms_voltages, ms_temperatures,
                                 ms_voltages_recalc, ms_temperatures_recalc,
                                 voltages_cal, temperatures_cal, heater_params):
-        self.getPlotItem().clear()
-        self.getPlotItem().setLogMode(y=False)
-        self.getPlotItem().setLabel("left", "Temperature", units="°C")
-        self.getPlotItem().setLabel("bottom", "Voltage", units="V")
+        plot_item = self.getPlotItem()
+        if plot_item is None:
+            return
+        plot_item.clear()
+        plot_item.setLogMode(y=False)
+        plot_item.setLabel("left", "Temperature", units="°C")
+        plot_item.setLabel("bottom", "Voltage", units="V")
         data = np.hstack([voltages, temperatures]).reshape((2, -1)).T
         data2 = np.hstack([ms_voltages, ms_temperatures]).reshape((2, -1)).T
         data3 = np.hstack([ms_voltages_recalc, ms_temperatures_recalc]).reshape((2, -1)).T
