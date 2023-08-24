@@ -368,7 +368,6 @@ class MainWidget(QtWidgets.QWidget):
                 msg_box.exec_()
                 return 
             else:
-                print(version)
                 self.device_proxy.upload_model_signal.emit(filename, version)
 
     def upload_calibration(self):
