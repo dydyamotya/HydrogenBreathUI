@@ -166,6 +166,7 @@ class MainWidget(QtWidgets.QWidget):
         add_button_to_groupbox("Save variant", self.save_variant)
         add_button_to_groupbox("Save heater params", self.save_heater_params)
         add_button_to_groupbox("Reboot device", self.reboot_device)
+        add_button_to_groupbox("Heater off", self.heater_off)
 
 
         times_layout = QtWidgets.QFormLayout()
@@ -391,3 +392,6 @@ class MainWidget(QtWidgets.QWidget):
 
     def reboot_device(self):
         self.device_proxy.reboot_device()
+
+    def heater_off(self):
+        self.device_proxy.heater_off()

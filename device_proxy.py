@@ -421,6 +421,12 @@ class MSDesktopQtProxy(QtCore.QObject):
             self.message.emit("Device rebooted")
 
     @Slot()
+    def heater_off(self):
+        if not self._pre_device_command():
+            self.device.suspend_heater()
+            self.message.emit("Heater suspended")
+
+    @Slot()
     def upload_calibration(self, filename):
         if not self._pre_device_command():
             self.busy = True

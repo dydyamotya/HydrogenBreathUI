@@ -23,6 +23,14 @@ class SettingsWidget(QtWidgets.QWidget):
         refresh_ports_button = QtWidgets.QPushButton("Refresh")
         refresh_ports_button.clicked.connect(self.refresh_ports)
         device_groupbox_layout.addWidget(refresh_ports_button)
+        if self.global_application_settings.value("comm/com"):
+            com_saved = str(self.global_application_settings.value("comm/com"))
+            for i in range(self.device_port_combobox.count()):
+                com_found = self.device_port_combobox.itemText(i)
+                if com_found == com_saved:
+                    self.device_port_combobox.setCurrentIndex(i)
+
+        self.device_port_combobox.currentTextChanged.connect(self.device_port_text_changed)
 
         main_layout.addWidget(device_groupbox)
 
@@ -67,6 +75,12 @@ class SettingsWidget(QtWidgets.QWidget):
 
     def get_device_port(self):
         return self.device_port_combobox.currentText()
+
+    @QtCore.Slot(str)
+    def device_port_text_changed(self, new_value: str):
+        logger.debug("Device port in settings changed")
+        self.global_application_settings.setValue("comm/com", new_value)
+
 
     def refresh_ports(self):
         self.device_port_combobox.clear()
